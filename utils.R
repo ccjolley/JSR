@@ -8,9 +8,10 @@ library(vdem)
 ###############################################################################
 # Load and join a series of IFs output files
 ###############################################################################
-load_ifs <- function(fnames) {
+load_ifs <- function(fnames,verbose=TRUE) {
   j <- NULL
   for (f in fnames) {
+    if (verbose) { print(f) }
     tmp <- read_tsv(f, col_names = c('varstr','year','value')) %>%
       na.omit %>%
       mutate(country = sub('^.*\\(','',varstr) %>% sub(',.*?\\)','',.) %>% sub('\\)','',.),

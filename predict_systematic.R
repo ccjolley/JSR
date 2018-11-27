@@ -1,5 +1,5 @@
-source('extract_indices.R')
 source('utils.R')
+source('extract_indices.R')
 source('IFs_plots.R')
 library(ggrepel)
 
@@ -203,6 +203,9 @@ lm_wrap <- function(train,test) {
 
 library(e1071)
 svm_wrap <- function(train,test,eps=0.1,cost=64) {
+  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
+  train <- train[!is_const]
+  test <- test[!is_const]
   my_svm <- svm(value ~ .,data=train,epsilon=eps,cost=cost)
   predict(my_svm,test)
 }

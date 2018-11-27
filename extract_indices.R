@@ -37,7 +37,7 @@ lib_dem %>%
 # Couldn't find a codebook, but from comparing with their PDF report it looks 
 # like the column I want is f_3
 ###############################################################################
-open_gov <- read_excel('WJP-Open-Gov-2015.xlsx',sheet='2015') %>%
+open_gov <- read_excel('data/WJP-Open-Gov-2015.xlsx',sheet='2015') %>%
   rename(value=f_3) %>%
   mutate(year=2015,varstr='Open Government') %>%
   select(country,year,value,varstr)
@@ -68,7 +68,7 @@ group_equality %>%
 ##############################################################################
 # Economic gender gap (think I got it from WB)
 ##############################################################################
-gender_gap <- read_csv('Global_Gender_Gap.csv') %>%
+gender_gap <- read_csv('data/Global_Gender_Gap.csv') %>%
   filter(Indicator=='Global Gender Gap Economic Participation and Opportunity Subindex') %>%
   filter(`Subindicator Type`=='Index') %>%
   select('Country Name',starts_with('20')) %>%
@@ -95,7 +95,7 @@ gender_gap %>%
 ###############################################################################
 # Business Environment Index (Legatum)
 ###############################################################################
-business_environment <- read_excel('Legatum_All_data_2007-2017.xlsx',sheet='busi') %>%
+business_environment <- read_excel('data/Legatum_All_data_2007-2017.xlsx',sheet='busi') %>%
   select(country,region,region2,starts_with('busi')) %>% 
   melt(id.vars=c('country','region','region2')) %>%
   mutate(year = sub('busi','',variable) %>% as.numeric) %>%
@@ -126,7 +126,7 @@ tf_read <- function(fname,year) {
     na.omit
 }
 
-trade_freedom <- plyr::ldply(2013:2018,function(x) tf_read(paste0('Heritage_index',x,'_data.xls'),x))
+trade_freedom <- plyr::ldply(2013:2018,function(x) tf_read(paste0('data/Heritage_index',x,'_data.xls'),x))
 
 trade_freedom %>%
   filter(country %in% c('Venezuela','Mexico','Brazil')) %>%
@@ -143,7 +143,7 @@ trade_freedom %>%
 ###############################################################################
 epi_backcast <- function(year) {
   sheetname=paste0('EPI2016_',year,'.csv')
-  read_excel('2016EPI_Backcasted_Scores.xls',sheet=sheetname) %>%
+  read_excel('data/2016EPI_Backcasted_Scores.xls',sheet=sheetname) %>%
     select(country,starts_with('EV.BioHab')) %>%
     rename(value=starts_with('EV.BioHab')) %>%
     mutate(year=year,
@@ -152,7 +152,7 @@ epi_backcast <- function(year) {
     na.omit
 }
 
-biodiversity_habitat <- read_excel('2016_epi_framework_indicator_scores_friendly.xls',
+biodiversity_habitat <- read_excel('data/2016_epi_framework_indicator_scores_friendly.xls',
                                    sheet='Indicator Scores') %>%
   select(Country,`EV- Biodiversity and Habitat`) %>%
   rename(country=Country,
@@ -178,7 +178,7 @@ biodiversity_habitat %>%
 ###############################################################################
 # Government effectiveness (WGI) - WB data, I think
 ###############################################################################
-gov_effect <- read_csv('government_effectiveness.csv') %>%
+gov_effect <- read_csv('data/government_effectiveness.csv') %>%
   filter(Indicator=='Government Effectiveness',
          `Subindicator Type`=='Estimate') %>%
   rename(country=`Country Name`) %>%
@@ -199,7 +199,7 @@ gov_effect %>%
 ###############################################################################
 # Efficiency of tax administration (IPD)
 ###############################################################################
-tax_admin <- read_csv('tax_admin.csv') %>%
+tax_admin <- read_csv('data/tax_admin.csv') %>%
   filter(Indicator=='Effectiveness of public action: tax system') %>% 
   rename(country=`Country Name`) %>%
   select(country,starts_with('20')) %>%
@@ -218,7 +218,7 @@ tax_admin <- read_csv('tax_admin.csv') %>%
 ###############################################################################
 # Safety & Security (Legatum)
 ###############################################################################
-safety <- read_excel('Legatum_All_data_2007-2017.xlsx',sheet='safe') %>%
+safety <- read_excel('data/Legatum_All_data_2007-2017.xlsx',sheet='safe') %>%
   select(country,starts_with('safe')) %>% 
   melt(id.vars='country') %>%
   mutate(year = sub('safe','',variable) %>% as.numeric) %>%
@@ -258,7 +258,7 @@ diag_acc %>%
 ###############################################################################
 # Child health (CIESIN)
 ###############################################################################
-child_health <- read_excel('nrpi-chi-2016.xlsx',sheet='NRPI & CHI, 2016') %>%
+child_health <- read_excel('data/nrpi-chi-2016.xlsx',sheet='NRPI & CHI, 2016') %>%
   rename(country=CountryName) %>%
   select(country,starts_with('CHI_v2016')) %>%
   melt(id.vars='country') %>%
@@ -284,7 +284,7 @@ child_health %>%
 ###############################################################################
 # Export sector diversification (UNCTAD))
 ###############################################################################
-export_div <- read_csv('us_concentdiversindices_43313314970963.csv',skip=2,
+export_div <- read_csv('data/us_concentdiversindices_43313314970963.csv',skip=2,
                        col_names=FALSE) %>% 
   filter(X1 != 'ECONOMY')
 export_div <- export_div[,c(1,(1:22)*3)]
@@ -312,7 +312,7 @@ export_div %>%
 ###############################################################################
 # ICT use (WEF) -- subindex C of networked readiness
 ###############################################################################
-ict_use <- read_excel('WEF_NRI_2012-2016_Historical_Dataset.xlsx',sheet='Data',skip=3,col_types='text') %>%
+ict_use <- read_excel('data/WEF_NRI_2012-2016_Historical_Dataset.xlsx',sheet='Data',skip=3,col_types='text') %>%
   filter(`GLOBAL ID`=='NRI.C',
          Attribute=='Value') %>%
   mutate(year=as.numeric(Edition)) %>%
@@ -336,7 +336,7 @@ ict_use <- read_excel('WEF_NRI_2012-2016_Historical_Dataset.xlsx',sheet='Data',s
 # GDP per capita
 # This one is in IFs, but I'll extract the WB series anyway to use for PCA
 ##############################################################################
-gdppc <- read_csv('API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_9984840.csv',skip=3) %>%
+gdppc <- read_csv('data/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_9984840.csv',skip=3) %>%
   filter(`Country Name` != "Country Name") %>%
   rename(country=`Country Name`) %>%
   select(country,starts_with('19'),starts_with('20')) %>%
@@ -359,7 +359,7 @@ gdppc %>%
 # dataset.
 # This one is in IFs, but I'll extract the WB series anyway to use for PCA
 ##############################################################################
-poverty <- read_csv('API_SI.POV.UMIC_DS2_en_csv_v2_10143666.csv',skip=3) %>%
+poverty <- read_csv('data/API_SI.POV.UMIC_DS2_en_csv_v2_10143666.csv',skip=3) %>%
   filter(`Country Name` != "Country Name") %>%
   rename(country=`Country Name`) %>%
   select(country,starts_with('19'),starts_with('20')) %>%

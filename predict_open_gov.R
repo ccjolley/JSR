@@ -65,3 +65,36 @@ xval(og_deriv_big,xgb_wrap,fold=100) # 0.3756
 # to do more with a different algorithm (KNN? Ridge regression?) or by better tuning
 # of the ones I've got. All of those things will require some work to enable better
 # parameterization with the wrapper constructs I'm using.
+
+# Try KNN, factor into stardard pipelines later
+library(FNN)
+
+
+knn_xval <- function(d,k,fold=10,test_frac=0.1) {
+  sapply(1:fold,function(i) {
+    split <- (runif(nrow(d)) < test_frac)
+    train <- d[!split,]
+    test <- d[split,]
+    x <- train %>% select(-country,-year,-value,-varstr)
+    xtest <- test %>% select(-country,-year,-value,-varstr) 
+    # scale test according to training data
+    for (n in names(xtest)) { 
+      xtest[[n]] <- xtest[[n]] - mean(x[[n]])
+      xtest[[n]] <- xtest[[n]] / sd(x[[n]])
+    }
+    x <- scale(x)
+    y <- train$value
+    knn_i <- knn.reg(train=x,test=xtest,y=train$value,k=k)
+    iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
+    sqrt(mean((test$value-knn_i$pred)^2))/iqr
+  }) %>% mean
+}
+
+knn_xval(og_smaller,10)
+# TODO: might make sense to return mean and conf interval
+# TODO: test out different values of k, choose optimal
+
+
+my_knn <- knn.reg(train=x,y=y,k=3)
+iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
+sqrt(mean((y-my_knn$pred)^2))/iqr

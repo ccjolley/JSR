@@ -69,6 +69,31 @@ median_sub <- function(s) {
   s
 }
 
+loess_sub <- function(df) {
+  # assumes that df contains two columns, with the variable of interest and the year
+  names(df) <- c('x','year')
+  loess_x <- loess(x ~ year,data=df)
+  pred_yr <- df$year[is.na(df$x)]
+  pred_x <- predict(loess_x,pred_yr)
+  j <- left_join(df,data.frame(xpred=pred_x,year=pred_yr),by='year') %>%
+    mutate(x=ifelse(is.na(x),xpred,x)) %>%
+    select(-xpred)
+  if (sum(is.na(j$x)) == 0) { return(j) }
+  # if there are still NAs, extrapolate using a linear function, but bound 
+  # extrapolation at the historical min and max values
+  lm_x <- lm(x ~ year,data=j)
+  new_data <- data.frame(year = j$year[is.na(j$x)])
+  new_data$xpred <- predict(lm_x,new_data)
+  x_min <- min(j$x,na.rm=TRUE)
+  x_max <- max(j$x,na.rm=TRUE)
+  new_data <- new_data %>%
+    mutate(xpred=ifelse(xpred < x_min,x_min,xpred),
+           xpred=ifelse(xpred > x_max,x_max,xpred))
+  left_join(j,new_data,by='year') %>%
+    mutate(x=ifelse(is.na(x),xpred,x)) %>%
+    select(-xpred)
+}
+
 ml_impute <- function(d,impute_fn=median_sub) {
   res <- d %>% 
     group_by(country) %>%
@@ -76,6 +101,10 @@ ml_impute <- function(d,impute_fn=median_sub) {
     mutate_at(vars(-value,-varstr,-country),impute_fn) %>% 
     ungroup %>%
     na.omit
+}
+
+ml_impute_loess <- function(d,impute_fn=loess_sub) {
+  # TODO: need to modify this to work with my new loess imputation...
 }
 
 ###############################################################################

@@ -1,39 +1,19 @@
 source('predict_systematic.R')
 
+###############################################################################
+# Trying to improve model performance
+###############################################################################
+
 ifs_basic <- load_all_ifs()
+group_equality <- all_jsr %>% filter(varstr=='Group Equality')
 group_equality_ifs <- ml_prep(group_equality,ifs_basic)
 
 xval(group_equality_ifs,lm_wrap) # 0.568
-pred_scatter(group_equality_ifs,lm_wrap,filter_year=2012:2016)
-country_trend(group_equality_ifs,'Kenya',lm_wrap)
-forecast_plot(group_equality,ifs_basic,'Kenya',lm_wrap) # unfortunate jump
+xval(group_equality_ifs,xgb_wrap) # 0.295 -- better than linear, but slow
 
-# TODO: try knn -- don't remember how to do this
+# this won't work until I've interpolated missing values
+ge_pred_1se <- get_predictors(group_equality_ifs)
 
-# svm_tune <- tune(svm,value ~ .,
-#                  data=select(lib_dem_ifs,-country,-varstr),
-#                  ranges=list(epsilon=0.1*(1:10),
-#                              cost=2^(0:9)))
-# plot(svm_tune)
-# print(svm_tune)
-
-# this step is much more time-consuming for variables like this with lots of historical data
-xval(lib_dem_ifs,svm_wrap) # never finished
-pred_scatter(lib_dem_ifs,svm_wrap,filter_year=2012:2016)
-# because this splits into train and test now, results are sort of stochastic
-# TODO: make plot use open circles instead of filled ones
-# TODO: need to figure out how to pass arbitrary parameters into pred_scatter() and on to wrapper
-country_trend(lib_dem_ifs,'Kenya',svm_wrap)
-forecast_plot(lib_dem,ifs_basic,'Kenya',svm_wrap) # gets worse!
-
-xval(group_equality_ifs,xgb_wrap) # 0.295 -- better than linear
-pred_scatter(group_equality_ifs,xgb_wrap,filter_year=2012:2016)
-country_trend(group_equality_ifs,'Kenya',xgb_wrap)
-forecast_plot(group_equality,ifs_basic,'Kenya',xgb_wrap) # more modest increase
-
-ifs_wlast <- features_end(group_equality,ifs_basic)
-forecast_plot(group_equality,ifs_wlast,'Kenya',xgb_wrap) # gets rid of the jump
-ml_prep(group_equality,ifs_wlast) %>% xval(xgb_wrap) # 0.217 -- doesn't hurt accuracy, but some snooping issues
 
 ###############################################################################
 # Rough plot for Kenya report

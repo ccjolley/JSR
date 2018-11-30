@@ -52,80 +52,79 @@ load_ifs <- function(fnames,verbose=TRUE) {
 #   fix_adm0() assumes that it's getting a data frame with country names stored
 #   in a column called 'country'.
 ###############################################################################
-rename_df <- data_frame(country=c('Bahamas, The','Bahamas','Burma/Myanmar','Burma','Cape Verde',
-                                  'Congo, Democratic Republic of the Congo',
-                                  'Democratic Republic of Congo',
-                                  'Dem. Rep. Congo',
-                                  'Congo, Dem. Rep.',
-                                  'Congo, Democratic Republic',
-                                  'Congo, Republic of','Congo, Rep.','Congo',
-                                  'Côte d\'Ivoire','Cote d\'Ivoire',
-                                  'Democratic Republic of Vietnam','Viet Nam',
-                                  'Egypt, Arab Rep.','Gambia, The','The Gambia','Hong Kong SAR',
-                                  'Hong Kong SAR, China','Iran, Islamic Rep.',
-                                  'Korea, Dem. People’s Rep.','Korea, North','Korea, Rep.','Korea, South',
-                                  'Lao PDR','Lao P.D.R.','Macao SAR, China',
-                                  'Macedonia, FYR','Micronesia, Fed. Sts.',
-                                  'Russian Federation','São Tomé and Príncipe',
-                                  'Syrian Arab Republic','United States','Venezuela, RB',
-                                  'Yemen, Rep.','Kyrgyz Republic','St. Vincent and The Grenadines',
-                                  'Slovak Republic','Bolivia (Plurinational State of)',
-                                  'Bosnia Herzegovina','China, Taiwan Province of',
-                                  'Micronesia','Indonesia (...2002)',
-                                  'Iran (Islamic Republic of)','Korea, Dem. People\'s Rep. of',
-                                  'Korea, Republic of','Lao People\'s Dem. Rep.',
-                                  'Libyan Arab Jamahiriya','Micronesia (Federated States of)',
-                                  'Republic of Korea','Republic of Moldova','Sudan (...2011)',
-                                  'Taiwan, China','TFYR of Macedonia','The former Yugoslav Rep. of Macedonia',
-                                  'United Rep. of Tanzania','Tanzania','United States Virgin Islands',
-                                  'Venezuela (Bolivarian Rep. of)','China, Hong Kong SAR',
-                                  'China, Macao SAR','Dem. Rep. of the Congo','Timor-Leste','Kazakstan',
-                                  'Palestinian Territory, Occupied','State of Palestine','Palestine/Gaza','Palestine/West Bank',
-                                  'Brunei Darussalam','Swaziland','Serbia','Sao Tome and Principe',
-                                  'Czech Republic','Bosnia','Central AfR',
-                                  'Congo, Democratic Republic of','DominicanRep',
-                                  'Unitd Kingdm','GuineaBiss','Equa Guinea','Kyrgyz',
-                                  'Korea North','Korea South','UAE','USA','SierraLeo',
-                                  'Palestine','Sudan South','Papua NG','Slovak Rep',
-                                  'Trinidad'),
-                        country_new=c('The Bahamas','The Bahamas','Myanmar','Myanmar','Cabo Verde',
-                                      'Democratic Republic of the Congo',
-                                      'Democratic Republic of the Congo',
-                                      'Democratic Republic of the Congo',
-                                      'Democratic Republic of the Congo',
-                                      'Democratic Republic of the Congo',
-                                      'Republic of the Congo','Republic of the Congo','Republic of the Congo',
-                                      'Ivory Coast','Ivory Coast',
-                                      'Vietnam','Vietnam',
-                                      'Egypt','Gambia','Gambia','Hong Kong',
-                                      'Hong Kong','Iran',
-                                      'North Korea','North Korea','South Korea','South Korea',
-                                      'Laos','Laos','Macau',
-                                      'Macedonia','Federated States of Micronesia',
-                                      'Russia','Sao Tome and Principe',
-                                      'Syria','United States of America','Venezuela',
-                                      'Yemen','Kyrgyzstan','St. Vincent and the Grenadines',
-                                      'Slovakia','Bolivia',
-                                      'Bosnia and Herzegovina','Taiwan',
-                                      'Federated States of Micronesia','Indonesia',
-                                      'Iran','North Korea',
-                                      'South Korea','Laos',
-                                      'Libya','Federated States of Micronesia',
-                                      'South Korea','Moldova','Sudan',
-                                      'Taiwan','Macedonia','Macedonia',
-                                      'United Republic of Tanzania','United Republic of Tanzania','Virgin Islands (U.S.)',
-                                      'Venezuela','Hong Kong','Macau','Democratic Republic of the Congo','East Timor','Kazakhstan',
-                                      'West Bank and Gaza','West Bank and Gaza','West Bank and Gaza','West Bank and Gaza',
-                                      'Brunei','eSwatini','Republic of Serbia','São Tomé and Principe',
-                                      'Czechia','Bosnia and Herzegovina','Central African Republic',
-                                      'Democratic Republic of the Congo','Dominican Republic',
-                                      'United Kingdom','Guinea-Bissau','Equatorial Guinea',
-                                      'Kyrgyzstan','North Korea','South Korea','United Arab Emirates',
-                                      'United States of America','Sierra Leone','West Bank and Gaza',
-                                      'South Sudan','Papua New Guinea','Slovakia',
-                                      'Trinidad and Tobago'))
-
 fix_adm0 <- function(df) {
+  rename_df <- data_frame(country=c('Bahamas, The','Bahamas','Burma/Myanmar','Burma','Cape Verde',
+                                    'Congo, Democratic Republic of the Congo',
+                                    'Democratic Republic of Congo',
+                                    'Dem. Rep. Congo',
+                                    'Congo, Dem. Rep.',
+                                    'Congo, Democratic Republic',
+                                    'Congo, Republic of','Congo, Rep.','Congo',
+                                    'Côte d\'Ivoire','Cote d\'Ivoire',
+                                    'Democratic Republic of Vietnam','Viet Nam',
+                                    'Egypt, Arab Rep.','Gambia, The','The Gambia','Hong Kong SAR',
+                                    'Hong Kong SAR, China','Iran, Islamic Rep.',
+                                    'Korea, Dem. People’s Rep.','Korea, North','Korea, Rep.','Korea, South',
+                                    'Lao PDR','Lao P.D.R.','Macao SAR, China',
+                                    'Macedonia, FYR','Micronesia, Fed. Sts.',
+                                    'Russian Federation','São Tomé and Príncipe',
+                                    'Syrian Arab Republic','United States','Venezuela, RB',
+                                    'Yemen, Rep.','Kyrgyz Republic','St. Vincent and The Grenadines',
+                                    'Slovak Republic','Bolivia (Plurinational State of)',
+                                    'Bosnia Herzegovina','China, Taiwan Province of',
+                                    'Micronesia','Indonesia (...2002)',
+                                    'Iran (Islamic Republic of)','Korea, Dem. People\'s Rep. of',
+                                    'Korea, Republic of','Lao People\'s Dem. Rep.',
+                                    'Libyan Arab Jamahiriya','Micronesia (Federated States of)',
+                                    'Republic of Korea','Republic of Moldova','Sudan (...2011)',
+                                    'Taiwan, China','TFYR of Macedonia','The former Yugoslav Rep. of Macedonia',
+                                    'United Rep. of Tanzania','Tanzania','United States Virgin Islands',
+                                    'Venezuela (Bolivarian Rep. of)','China, Hong Kong SAR',
+                                    'China, Macao SAR','Dem. Rep. of the Congo','Timor-Leste','Kazakstan',
+                                    'Palestinian Territory, Occupied','State of Palestine','Palestine/Gaza','Palestine/West Bank',
+                                    'Brunei Darussalam','Swaziland','Serbia','Sao Tome and Principe',
+                                    'Czech Republic','Bosnia','Central AfR',
+                                    'Congo, Democratic Republic of','DominicanRep',
+                                    'Unitd Kingdm','GuineaBiss','Equa Guinea','Kyrgyz',
+                                    'Korea North','Korea South','UAE','USA','SierraLeo',
+                                    'Palestine','Sudan South','Papua NG','Slovak Rep',
+                                    'Trinidad'),
+                          country_new=c('The Bahamas','The Bahamas','Myanmar','Myanmar','Cabo Verde',
+                                        'Democratic Republic of the Congo',
+                                        'Democratic Republic of the Congo',
+                                        'Democratic Republic of the Congo',
+                                        'Democratic Republic of the Congo',
+                                        'Democratic Republic of the Congo',
+                                        'Republic of the Congo','Republic of the Congo','Republic of the Congo',
+                                        'Ivory Coast','Ivory Coast',
+                                        'Vietnam','Vietnam',
+                                        'Egypt','Gambia','Gambia','Hong Kong',
+                                        'Hong Kong','Iran',
+                                        'North Korea','North Korea','South Korea','South Korea',
+                                        'Laos','Laos','Macau',
+                                        'Macedonia','Federated States of Micronesia',
+                                        'Russia','Sao Tome and Principe',
+                                        'Syria','United States of America','Venezuela',
+                                        'Yemen','Kyrgyzstan','St. Vincent and the Grenadines',
+                                        'Slovakia','Bolivia',
+                                        'Bosnia and Herzegovina','Taiwan',
+                                        'Federated States of Micronesia','Indonesia',
+                                        'Iran','North Korea',
+                                        'South Korea','Laos',
+                                        'Libya','Federated States of Micronesia',
+                                        'South Korea','Moldova','Sudan',
+                                        'Taiwan','Macedonia','Macedonia',
+                                        'United Republic of Tanzania','United Republic of Tanzania','Virgin Islands (U.S.)',
+                                        'Venezuela','Hong Kong','Macau','Democratic Republic of the Congo','East Timor','Kazakhstan',
+                                        'West Bank and Gaza','West Bank and Gaza','West Bank and Gaza','West Bank and Gaza',
+                                        'Brunei','eSwatini','Republic of Serbia','São Tomé and Principe',
+                                        'Czechia','Bosnia and Herzegovina','Central African Republic',
+                                        'Democratic Republic of the Congo','Dominican Republic',
+                                        'United Kingdom','Guinea-Bissau','Equatorial Guinea',
+                                        'Kyrgyzstan','North Korea','South Korea','United Arab Emirates',
+                                        'United States of America','Sierra Leone','West Bank and Gaza',
+                                        'South Sudan','Papua New Guinea','Slovakia',
+                                        'Trinidad and Tobago'))
   tmp <- df %>%
     mutate(country=sub('Saint\\.','Saint',country),
            country=sub('St\\.','Saint',country)) %>%
@@ -144,14 +143,18 @@ library(rgdal)
 library(maptools)
 library(ggplot2)
 library(dplyr)
-world = readOGR(dsn="~/Projects/GIS/Natural_Earth_quick_start/50m_cultural", 
-               layer="ne_50m_admin_0_countries")
-world@data$id = rownames(world@data)
-world.points = fortify(world, region="id")
-world.df = plyr::join(world.points, world@data, by="id") %>%
-  mutate(SOVEREIGNT=as.character(SOVEREIGNT))
+
+load_world_shp <- function() {
+  world = readOGR(dsn="~/Projects/GIS/Natural_Earth_quick_start/50m_cultural", 
+                  layer="ne_50m_admin_0_countries")
+  world@data$id = rownames(world@data)
+  world.points = fortify(world, region="id")
+  plyr::join(world.points, world@data, by="id") %>%
+    mutate(SOVEREIGNT=as.character(SOVEREIGNT))
+}
 
 world_map <- function(d,title) {
+  world.df <- load_world_shp()
   plot <- d %>%
     rename(SOVEREIGNT=country) %>%
     right_join(world.df,by='SOVEREIGNT') %>%
@@ -173,7 +176,9 @@ world_map <- function(d,title) {
 ###############################################################################
 # Country lists
 ###############################################################################
+world.df <- load_world_shp()
 all_countries <- unique(world.df$SOVEREIGNT)
+rm(world.df)
 
 usaid_countries <- c('Afghanistan','Albania','Angola','Armenia','Azerbaijan',
                      'Bangladesh','Belarus','Benin','Bosnia and Herzegovina',

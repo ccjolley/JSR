@@ -373,3 +373,15 @@ poverty %>%
   filter(country %in% c('Denmark','China','Mexico')) %>%
   ggplot(aes(x=year,y=value,group=country,color=country)) +
   geom_line()
+
+###############################################################################
+# rbind everything into a single data frame; I can filter them back out later
+###############################################################################
+all_jsr <- rbind(biodiversity_habitat,business_environment,child_health,
+                 diag_acc,export_div,gdppc,gender_gap,gov_effect,
+                 group_equality,ict_use,lib_dem,open_gov,poverty,safety,
+                 tax_admin,trade_freedom)
+rm(biodiversity_habitat,business_environment,child_health,
+   diag_acc,export_div,gdppc,gender_gap,gov_effect,
+   group_equality,ict_use,lib_dem,open_gov,poverty,safety,
+   tax_admin,trade_freedom)

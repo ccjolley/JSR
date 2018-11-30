@@ -216,6 +216,20 @@ svm_wrap <- function(train,test,eps=0.1,cost=64) {
   predict(my_svm,test)
 }
 
+norm_svm_wrap <- function(train,test,eps=0.1,cost=64) {
+  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
+  train <- train[!is_const]
+  test <- test[!is_const]
+  # scale test according to training data
+  for (n in setdiff(names(test),c('country','year','value','varstr'))) { 
+    test[[n]] <- test[[n]] - mean(train[[n]])
+    test[[n]] <- test[[n]] / sd(train[[n]])
+    train[[n]] <- scale(train[[n]])
+  }
+  my_svm <- svm(value ~ .,data=train,epsilon=eps,cost=cost)
+  predict(my_svm,test)
+}
+
 library(xgboost)
 xgb_wrap <- function(train,test,eta=0.3,max_depth=6,subsample=1,colsample_bytree=0.8,
                      verbose=0,nrounds=80) {
@@ -236,6 +250,35 @@ xgb_wrap <- function(train,test,eta=0.3,max_depth=6,subsample=1,colsample_bytree
                         nthread=4,verbose=verbose)
   }
   predict(my_xgb,dtest)
+}
+
+###############################################################################
+# Eventually this will be a wrapper for KNN, but not until I figure out a
+# better way to pass parameters into these wrappers.
+# I'll also want some way to get a verson of xval() that gets me the sort of
+# ldply-friendly output I get here for hyperparameter tuning.
+###############################################################################
+library(FNN)
+knn_xval <- function(d,k,fold=10,test_frac=0.1) {
+  nrmse <- sapply(1:fold,function(i) {
+    split <- (runif(nrow(d)) < test_frac)
+    train <- d[!split,]
+    test <- d[split,]
+    x <- train %>% select(-country,-year,-value,-varstr)
+    xtest <- test %>% select(-country,-year,-value,-varstr) 
+    # scale test according to training data
+    for (n in names(xtest)) { 
+      xtest[[n]] <- xtest[[n]] - mean(x[[n]])
+      xtest[[n]] <- xtest[[n]] / sd(x[[n]])
+    }
+    x <- scale(x)
+    y <- train$value
+    knn_i <- knn.reg(train=x,test=xtest,y=train$value,k=k)
+    iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
+    sqrt(mean((test$value-knn_i$pred)^2))/iqr
+  }) 
+  ci <- t.test(nrmse)$conf.int
+  data.frame(k=k,mean=mean(nrmse),lo=ci[1],hi=ci[2])
 }
 
 ###############################################################################

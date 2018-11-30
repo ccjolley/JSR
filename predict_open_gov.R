@@ -5,6 +5,7 @@ open_gov_ifs <- ml_prep(open_gov,ifs_basic) %>% na.omit
 
 xval(open_gov_ifs,lm_wrap,fold=100) # 32.01; threw rank-deficiency error
 xval(open_gov_ifs,svm_wrap,fold=100) # 0.424
+xval(open_gov_ifs,norm_svm_wrap,fold=100) # 0.4419; normalization doesn't help much
 xval(open_gov_ifs,xgb_wrap,fold=100) # 0.452
 
 # This is the worst performance on any of the models; ideally I'd like to get this down below about 0.25.
@@ -14,6 +15,7 @@ xval(open_gov_ifs,xgb_wrap,fold=100) # 0.452
 og_smaller <- open_gov_ifs %>% select(country,year,value,varstr,get_predictors(open_gov_ifs))
 xval(og_smaller,lm_wrap,fold=100) # 0.333 - no longer rank-deficient
 xval(og_smaller,svm_wrap,fold=100) # 0.441 
+xval(og_smaller,norm_svm_wrap,fold=100) # 0.441
 xval(og_smaller,xgb_wrap,fold=100) # 0.401 
 
 more_predictors <- open_gov_ifs %>% 
@@ -66,35 +68,22 @@ xval(og_deriv_big,xgb_wrap,fold=100) # 0.3756
 # of the ones I've got. All of those things will require some work to enable better
 # parameterization with the wrapper constructs I'm using.
 
-# Try KNN, factor into stardard pipelines later
 library(FNN)
 
+knn_tune <- plyr::ldply(1:25,function(k) knn_xval(og_smaller,k,fold=100))
+ggplot(knn_tune,aes(x=k,y=mean)) +
+  geom_line(color='#BA0C2F') +
+  geom_errorbar(aes(ymax=hi,ymin=lo),width=0.5) +
+  theme_USAID + colors_USAID
 
-knn_xval <- function(d,k,fold=10,test_frac=0.1) {
-  sapply(1:fold,function(i) {
-    split <- (runif(nrow(d)) < test_frac)
-    train <- d[!split,]
-    test <- d[split,]
-    x <- train %>% select(-country,-year,-value,-varstr)
-    xtest <- test %>% select(-country,-year,-value,-varstr) 
-    # scale test according to training data
-    for (n in names(xtest)) { 
-      xtest[[n]] <- xtest[[n]] - mean(x[[n]])
-      xtest[[n]] <- xtest[[n]] / sd(x[[n]])
-    }
-    x <- scale(x)
-    y <- train$value
-    knn_i <- knn.reg(train=x,test=xtest,y=train$value,k=k)
-    iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
-    sqrt(mean((test$value-knn_i$pred)^2))/iqr
-  }) %>% mean
-}
+# Looks like my best bet is k=5, with NRMSE = 0.28166
 
-knn_xval(og_smaller,10)
-# TODO: might make sense to return mean and conf interval
-# TODO: test out different values of k, choose optimal
+knn_tune2 <- plyr::ldply(1:25,function(k) knn_xval(og_bigger,k,fold=100))
+ggplot(knn_tune2,aes(x=k,y=mean)) +
+  geom_line(color='#BA0C2F') +
+  geom_errorbar(aes(ymax=hi,ymin=lo),width=0.5) +
+  theme_USAID + colors_USAID
+# Doesn't do as well as og_smaller does.
 
-
-my_knn <- knn.reg(train=x,y=y,k=3)
-iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
-sqrt(mean((y-my_knn$pred)^2))/iqr
+# This is still my worst-performing model, but improving it further would require
+# hyperparameter tuning (for SVM, xgboost) and maybe also model stacking.

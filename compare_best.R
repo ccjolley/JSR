@@ -1,6 +1,24 @@
 source('predict_systematic.R')
 ifs_basic <- load_all_ifs()
 
+# To really do this properly, I can't just be iterating across a list of 
+# datasets and applying one algorithm with default hyperparameters.
+# For each sub-model, I'll need to iterate over:
+# - A dataset (really, a string I can use to subset jsr_all)
+# - An algorithm (currently specified using a wrapper function)
+# - Hyperparameters for that algorithm
+# - Some way of encoding pre-processing steps -- normalization, feature 
+#   enrichment, etc. It would make sense to just define a new wrapper for
+#   this set of steps, filling the role that ml_impute currently fills
+#   in xval()
+# In addition, I need a more flexible argument interface for xval that can
+# take an an arbitrary list of hyperparameters and pass them into the 
+# wrapper function. 
+
+# Eventually, it might be fun to do something slick and object-oriented here.
+# For now, I'll need a way to get parameters and preprocessing into xval,
+# then to use purrr::pmap to iterate over this collection of stuff.
+
 ###############################################################################
 # For each JSR series, get 10-fold cross validation of xgboost with defaults
 # left tax_admin out; there just isn't enough data for this approach.

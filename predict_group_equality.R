@@ -4,12 +4,18 @@ source('predict_systematic.R')
 # Trying to improve model performance
 ###############################################################################
 
-ifs_basic <- load_all_ifs()
-group_equality <- all_jsr %>% filter(varstr=='Group Equality')
-group_equality_ifs <- ml_prep(group_equality,ifs_basic)
+# TODO: for some of these with a long time window, it's worth looking at 
+# accuracy across years. If accuracy is worst at the beginning of the series
+# (where IFs data are more likely to be imputed) then it might make sense to
+# drop some of these.
 
-xval(group_equality_ifs,lm_wrap) # 0.568
-xval(group_equality_ifs,xgb_wrap) # 0.295 -- better than linear, but slow
+ifs_basic <- load_all_ifs()
+ifs_imputed <- ml_impute_loess(ifs_basic) # this takes a while...
+group_equality <- all_jsr %>% filter(varstr=='Group Equality')
+group_equality_ifs <- ml_prep(group_equality,ifs_imputed)
+
+xval(group_equality_ifs,lm_wrap) # 0.568, 0.417 with loess imputation
+xval(group_equality_ifs,xgb_wrap) # 0.295, 0.110 with loess imputation!
 
 # this won't work until I've interpolated missing values
 ge_pred_1se <- get_predictors(group_equality_ifs)

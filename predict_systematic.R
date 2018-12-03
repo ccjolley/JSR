@@ -70,8 +70,9 @@ median_sub <- function(s) {
 }
 
 loess_sub <- function(df) {
-  # assumes that df contains two columns, with the variable of interest and the year
-  names(df) <- c('x','year')
+  all_years <- data.frame(year=min(df$year):max(df$year),country=df$country[1])
+  df <- right_join(df,all_years,by=c('country','year'))
+  if (sum(is.na(df$x)) == 0) { return(df) }
   loess_x <- loess(x ~ year,data=df)
   pred_yr <- df$year[is.na(df$x)]
   pred_x <- predict(loess_x,pred_yr)
@@ -92,6 +93,12 @@ loess_sub <- function(df) {
   left_join(j,new_data,by='year') %>%
     mutate(x=ifelse(is.na(x),xpred,x)) %>%
     select(-xpred)
+  # TODO: Actually, I can leverage the fact that any remaning NAs at this last
+  # step will be at the beginning of the time series, since loess will fill in
+  # gaps and there is always data at the end (due to predictions). So just
+  # base the extrapolation on the first n years after data appear. For example,
+  # fdi_inflows in China look weird when I get this wrong. This will be a tunable
+  # parameter that I can use to adjust for optimum accuracy globally (across metrics).
 }
 
 ml_impute <- function(d,impute_fn=median_sub) {
@@ -101,11 +108,32 @@ ml_impute <- function(d,impute_fn=median_sub) {
     mutate_at(vars(-value,-varstr,-country),impute_fn) %>% 
     ungroup %>%
     na.omit
+  res
 }
 
-ml_impute_loess <- function(d,impute_fn=loess_sub) {
-  # TODO: need to modify this to work with my new loess imputation...
+library(purrr)
+ml_impute_loess <- function(df,impute_fn=loess_sub) {
+  col_list <- setdiff(names(df),c('country','year')) 
+  for (n in col_list) {
+    new_df <- df %>% 
+      select(country,year,n) %>%
+      rename(x=n) 
+    imputed <- split(new_df,new_df$country) %>%
+      map(loess_sub) %>%
+      plyr::rbind.fill() %>%
+      rename(xpred=x) 
+    j <- left_join(new_df,imputed,by=c('country','year'))
+    df[[n]] <- j$xpred
+  }
+  df
 }
+
+# TODO: do I still need ml_impute now that I have loess? Check to see what
+# it's actually doing in the places where it's being called. To me, it makes
+# sense (now) to impute just once on the IFs data at the beginning, rather
+# than doing so after the train-test split, since I know that the future 
+# data won't contain any missing values.
+
 
 ###############################################################################
 # Reusable cross-validation code
@@ -124,8 +152,7 @@ xval <- function(d,wrap_fun,fold=10,test_frac=0.1,lo=NULL,hi=NULL) {
     if (!is.null(lo) & !is.null(hi)) {
       pred <- make_finite(pred,lo,hi)
     }
-    iqr <- quantile(test$value,probs=0.75) - quantile(test$value,probs=0.25)
-    sqrt(mean((test$value-pred)^2))/iqr
+    sqrt(mean((test$value-pred)^2))/IQR(test$value)
   }) %>% mean
 }
 
@@ -153,10 +180,9 @@ pred_scatter <- function(d,wrap_fun,filter_year=NULL,test_frac=0.3,lo=NULL,hi=NU
     plotme$value <- make_finite(plotme$value,lo,hi)
     plotme$pred <- make_finite(plotme$pred,lo,hi)
   }  
-  iqr <- quantile(plotme$value,probs=0.75) - quantile(plotme$value,probs=0.25)
   plotme %>%
     filter(year %in% filter_year) %>%
-    mutate(ndev=abs(value-pred)/iqr,
+    mutate(ndev=abs(value-pred)/IQR(plotme$value),
            highlight=ndev > quantile(ndev,probs=0.95),
            label=ifelse(highlight,country,NA)) %>%
     ggplot(aes(x=value,y=pred,color=highlight)) +
@@ -303,8 +329,7 @@ knn_xval <- function(d,k,fold=10,test_frac=0.1) {
     x <- scale(x)
     y <- train$value
     knn_i <- knn.reg(train=x,test=xtest,y=train$value,k=k)
-    iqr <- quantile(y,probs=0.75) - quantile(y,probs=0.25)
-    sqrt(mean((test$value-knn_i$pred)^2))/iqr
+    sqrt(mean((test$value-knn_i$pred)^2))/IQR(test$value)
   }) 
   ci <- t.test(nrmse)$conf.int
   data.frame(k=k,mean=mean(nrmse),lo=ci[1],hi=ci[2])

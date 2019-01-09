@@ -1,48 +1,63 @@
 source('predict_systematic.R')
+library(purrr)
 ifs_basic <- load_all_ifs()
 
-# To really do this properly, I can't just be iterating across a list of 
-# datasets and applying one algorithm with default hyperparameters.
-# For each sub-model, I'll need to iterate over:
-# - A dataset (really, a string I can use to subset jsr_all)
-# - An algorithm (currently specified using a wrapper function)
-# - Hyperparameters for that algorithm
-# - Some way of encoding pre-processing steps -- normalization, feature 
-#   enrichment, etc. It would make sense to just define a new wrapper for
-#   this set of steps, filling the role that ml_impute currently fills
-#   in xval()
-# In addition, I need a more flexible argument interface for xval that can
-# take an an arbitrary list of hyperparameters and pass them into the 
-# wrapper function. 
-
-# Eventually, it might be fun to do something slick and object-oriented here.
-# For now, I'll need a way to get parameters and preprocessing into xval,
-# then to use purrr::pmap to iterate over this collection of stuff.
+model_list <- list(
+  biodiv=list(label='Biodiversity & Habitat', wrapper=xgb_wrap, prepare=NULL),
+  biz_env=list(label='Business Environment', wrapper=xgb_wrap, prepare=NULL),
+  child_health=list(label='Child Health', wrapper=xgb_wrap, prepare=NULL),
+  diag_acc=list(label='Diagonal Accountability', wrapper=xgb_wrap, prepare=NULL),
+  export_div=list(label='Export Diversification', wrapper=xgb_wrap, prepare=NULL),
+  gender_gap=list(label='Economic gender gap', wrapper=xgb_wrap, prepare=NULL),
+  gov_effect=list(label='Government Effectiveness', wrapper=xgb_wrap, prepare=NULL),
+  group_eq=list(label='Group Equality', wrapper=xgb_wrap, prepare=NULL),
+  ict_use=list(label='ICT Use', wrapper=xgb_wrap, prepare=NULL),
+  lib_dem=list(label='Liberal Democracy', wrapper=xgb_wrap, prepare=NULL),
+  open_gov=list(label='Open Government', wrapper=knn_wrap, prepare=lasso_1se, k=7),
+  safety=list(label='Safety & Security', wrapper=xgb_wrap, prepare=NULL),
+  tax_admin=list(label='Tax Administration', wrapper=xgb_wrap, prepare=NULL),
+  trade_freedom=list(label='Trade Freedom', wrapper=xgb_wrap, prepare=NULL)
+)
 
 ###############################################################################
-# For each JSR series, get 10-fold cross validation of xgboost with defaults
-# left tax_admin out; there just isn't enough data for this approach.
+# Updated version of cross-validation
 ###############################################################################
-all_jsr <- list(biodiversity_habitat,business_environment,child_health,diag_acc,
-                export_div,gender_gap,gov_effect,group_equality,ict_use,
-                lib_dem,open_gov,safety,trade_freedom)
-xgb_scores <- plyr::ldply(all_jsr,function(x) {
-  print(x$varstr[1])
-  data.frame(
-    var=x$varstr[1],
-    score=xval(ml_prep(x,ifs_basic),xgb_wrap)
-)})
+xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE) {
+  if (verbose) {
+    mesg <- as.character(input_list[-c(2,3)]) # don't show wrapper, preparation
+    print(mesg)
+  }
+  d <- all_jsr %>% 
+    filter(varstr==input_list$label) %>%
+    ml_prep(ifs_basic)
+  if (sum(!is.na(d$value)) < 200) { test_frac = 0.2}
+  params <- input_list[-c(1,2,3)]
+  map_dbl(1:fold,function(i) {
+    n <- nrow(d)
+    split <- (runif(n) < test_frac)
+    test <- d[split,] %>% ml_impute %>% select(-country,-varstr)
+    train <- d[!split,]  %>% ml_impute %>% select(-country,-varstr)
+    if (!is.null(input_list$prepare)) {
+      prep <- input_list$prepare(list(train=train,test=test))
+      train <- prep$train
+      test <- prep$test
+    }
+    pred <- do.call(input_list$wrapper,c(list(train,test),params))
+    sqrt(mean((test$value-pred)^2))/IQR(test$value)
+  }) %>% mean
+}
 
-xval(ml_prep(tax_admin2,ifs_basic),xgb_wrap,fold=1)
+###############################################################################
+# Visualize results
+###############################################################################
+best_scores <- map_dbl(model_list,xval_new)
+data.frame(model=map_chr(model_list,"label"),score=best_scores) %>%
+  mutate(model=fct_reorder(model,score)) %>%
+  ggplot(aes(x=model,y=score)) +
+  geom_bar(stat='identity',fill='#BA0C2F') +
+  coord_flip() +
+  theme_USAID +
+  xlab(NULL) + ylab('NRMSE') +
+  ggtitle('Scores as of 01/09/2019')
 
-xgb_scores %>%
-  mutate(highlight=ifelse(score>quantile(xgb_scores$score,0.95),TRUE,FALSE),
-         var=fct_reorder(var,score)) %>%
-    ggplot(aes(x=var,y=score,fill=highlight)) +
-    geom_bar(stat='identity') +
-    coord_flip() +
-    theme(axis.title.y = element_blank(),
-          legend.position = 'none') +
-    ylab('Normalized RMSE') +
-    theme_USAID +
-    fill_USAID
+

@@ -4,9 +4,13 @@ source('IFs_plots.R')
 library(ggrepel)
 library(glmnet)
 
-load_ifs <- function() {
-  if(!file.exists('IFs_imputed.RData')) {
-    
+load_all_ifs <- function() {
+  if(!file.exists('IFs_imputed.rds')) {
+    imputed_ifs <- load_raw_ifs() %>% ml_impute_loess
+    saveRDS(imputed_ifs,'IFs_imputed.rds')
+    imputed_ifs
+  } else {
+    readRDS('IFs_imputed.rds')
   }
 }
 
@@ -269,80 +273,6 @@ forecast_plot <- function(jsr,ifs,country_,wrap_fun) {
 }
 
 ###############################################################################
-# Model wrappers
-###############################################################################
-lm_wrap <- function(train,test,...) {
-  if (!('value' %in% names(test))) { test$value <- NA }
-  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
-  is_const['value'] <- FALSE
-  train <- train[!is_const]
-  test <- test[!is_const]
-  my_lm <- lm(value ~ .,data=train)
-  predict(my_lm,test)
-}
-
-library(FNN)
-knn_wrap <- function(train,test,...) {
-  # filter values that are nearly constant
-  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
-  is_const['value'] <- FALSE
-  train <- train[!is_const]
-  test <- test[!is_const]
-  # prepare for KNN
-  x <- train %>% select(-value)
-  xtest <- test %>% select(-value)
-  # scale test according to training data
-  for (n in names(xtest)) { 
-    xtest[[n]] <- xtest[[n]] - mean(x[[n]])
-    xtest[[n]] <- xtest[[n]] / sd(x[[n]])
-  }
-  x <- scale(x)
-  my_knn <- knn.reg(train=x,test=xtest,y=train$value,...)
-  my_knn$pred
-}
-
-library(e1071)
-svm_wrap <- function(train,test,...) {
-  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
-  train <- train[!is_const]
-  test <- test[!is_const]
-  my_svm <- svm(value ~ .,data=train,... = )
-  predict(my_svm,test)
-}
-
-norm_svm_wrap <- function(train,test,...) {
-  is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
-  train <- train[!is_const]
-  test <- test[!is_const]
-  # scale test according to training data
-  for (n in setdiff(names(test),c('country','year','value','varstr'))) { 
-    test[[n]] <- test[[n]] - mean(train[[n]])
-    test[[n]] <- test[[n]] / sd(train[[n]])
-    train[[n]] <- scale(train[[n]])
-  }
-  my_svm <- svm(value ~ .,data=train,...)
-  predict(my_svm,test)
-}
-
-library(xgboost)
-xgb_wrap <- function(train,test,nrounds=100,...) {
-  if (!('value' %in% names(test))) { test$value <- NA}
-  dtrain <- xgb.DMatrix(data=select(train,-value) %>% as.matrix,
-                        label=train$value)
-  dtest <- xgb.DMatrix(data=select(test,-value) %>% as.matrix,
-                       label=test$value)
-  if (is.null(nrounds)) { # using xval to determine nrounds
-    watchlist <- list(train=dtrain, test=dtest)
-    my_xgb <- xgb.train(data=dtrain,nrounds=200,watchlist=watchlist,  
-                        early_stopping_rounds=5,verbose=0,nthread=4,...)
-    paste0(my_xgb$best_iteration,' iterations') %>% print
-  } else {
-    my_xgb <- xgb.train(data=dtrain,nrounds=nrounds,nthread=4,...)
-  }
-  predict(my_xgb,dtest)
-}
-
-###############################################################################
 # Eventually this will be a wrapper for KNN, but not until I figure out a
 # better way to pass parameters into these wrappers.
 # I'll also want some way to get a verson of xval() that gets me the sort of
@@ -425,19 +355,6 @@ add_derivs <- function(d) {
     out <- left_join(out,gd,by=c('country','year')) 
   }
   out
-}
-
-###############################################################################
-# Feature selection: Get a reduced set of features using LASSO
-###############################################################################
-get_predictors <- function(d,show_plot=TRUE,cutoff='1se') {
-  x <- d %>% select(-country,-year,-value,-varstr) %>% as.matrix
-  y <- d$value
-  cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
-  if (show_plot) { plot(cv.out) }
-  if (cutoff=='1se') { tmp <- coef(cv.out,s=cv.out$lambda.1se) }
-  else { tmp <- coef(cv.out,s=cv.out$lambda.min) }
-  colnames(x)[tmp@i]
 }
 
 ###############################################################################

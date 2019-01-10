@@ -223,7 +223,8 @@ tax_admin <- ipd_all %>%
   left_join(short_names,by='indicator') %>%
   rename(year=variable) %>%
   select(country,year,value,short) %>%
-  mutate(value=as.numeric(value)) %>%
+  mutate(value=as.numeric(value),
+         year=as.numeric(as.character(year))) %>%
   dcast(country + year ~ short) %>%
   rowwise() %>%
   mutate(value=mean(c(corp,evasion,income,territory),na.rm=TRUE)) %>%

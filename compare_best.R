@@ -1,4 +1,6 @@
 source('predict_systematic.R')
+source('wrappers.R')
+source('prepare.R')
 library(purrr)
 ifs_basic <- load_all_ifs()
 
@@ -51,6 +53,9 @@ xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE) {
 # Visualize results
 ###############################################################################
 best_scores <- map_dbl(model_list,xval_new)
+
+map_dbl(model_list['tax_admin'],xval_new)
+
 data.frame(model=map_chr(model_list,"label"),score=best_scores) %>%
   mutate(model=fct_reorder(model,score)) %>%
   ggplot(aes(x=model,y=score)) +

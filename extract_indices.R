@@ -198,22 +198,37 @@ gov_effect %>%
 
 ###############################################################################
 # Efficiency of tax administration (IPD)
+# From J2SR website:
+# Measures the efficiency of tax collection in relation to corporate taxes, 
+# household income taxes, national geographic consistency and reach, and the 
+# government's ability to limit tax evasion.
+# Looks to me like there are four different indicators that cover this, all 
+# collected in 2012 and 2016. These take on values from 0-4, or 99. It looks
+# like the 99 is a "not applicable" result. I'll take the mean of these four
+# indicators, dropping any missing values from the mean.
 ###############################################################################
-tax_admin <- read_csv('data/tax_admin.csv') %>%
-  filter(Indicator=='Effectiveness of public action: tax system') %>% 
-  rename(country=`Country Name`) %>%
-  select(country,starts_with('20')) %>%
-  melt(id.vars='country') %>%
-  mutate(year=as.numeric(as.character(variable)),
-         varstr='Tax Administration',
-         value=as.numeric(value)) %>%
-  select(country,year,value,varstr) %>% 
-  na.omit
-
-# same governance variables as lib dem
-# government consumption, expenditure, (by destination)
-# government debt
-# household consumption variables
+ipd_all <- read_csv('data/tax_admin.csv')
+names(ipd_all) <- c('country3','country','indicator','type','2001','2006','2009','2012','2016')
+short_names <- data.frame(indicator=c('Ability to limit tax evasion',
+                                 'Efficiency of the tax administration: corporation tax',
+                                 'Efficiency of the tax administration: income tax',
+                                 'Efficiency of the tax administration: national territory'),
+                          short=c('evasion','corp','income','territory'))
+tax_admin <- ipd_all %>% 
+  filter(indicator %in% short_names$indicator) %>%
+  select(country,indicator,starts_with('20')) %>%
+  melt(id.vars=c('country','indicator')) %>% 
+  mutate(value=ifelse(value==99,NA,value)) %>%
+  na.omit %>% 
+  left_join(short_names,by='indicator') %>%
+  rename(year=variable) %>%
+  select(country,year,value,short) %>%
+  mutate(value=as.numeric(value)) %>%
+  dcast(country + year ~ short) %>%
+  rowwise() %>%
+  mutate(value=mean(c(corp,evasion,income,territory),na.rm=TRUE)) %>%
+  mutate(varstr='Tax Administration') %>%
+  select(country,year,value,varstr)
 
 ###############################################################################
 # Safety & Security (Legatum)

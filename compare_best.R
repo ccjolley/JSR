@@ -17,7 +17,7 @@ model_list <- list(
   lib_dem=list(label='Liberal Democracy', wrapper=xgb_wrap, prepare=NULL),
   open_gov=list(label='Open Government', wrapper=xgb_wrap, prepare=NULL),
   safety=list(label='Safety & Security', wrapper=xgb_wrap, prepare=NULL),
-  tax_admin=list(label='Tax Administration', wrapper=xgb_wrap, prepare=NULL),
+  tax_admin=list(label='Tax Administration', wrapper=lm_wrap, prepare=lasso_1se),
   trade_freedom=list(label='Trade Freedom', wrapper=xgb_wrap, prepare=NULL)
 )
 

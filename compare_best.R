@@ -15,7 +15,7 @@ model_list <- list(
   group_eq=list(label='Group Equality', wrapper=xgb_wrap, prepare=NULL),
   ict_use=list(label='ICT Use', wrapper=xgb_wrap, prepare=NULL),
   lib_dem=list(label='Liberal Democracy', wrapper=xgb_wrap, prepare=NULL),
-  open_gov=list(label='Open Government', wrapper=knn_wrap, prepare=lasso_1se, k=7),
+  open_gov=list(label='Open Government', wrapper=xgb_wrap, prepare=NULL),
   safety=list(label='Safety & Security', wrapper=xgb_wrap, prepare=NULL),
   tax_admin=list(label='Tax Administration', wrapper=xgb_wrap, prepare=NULL),
   trade_freedom=list(label='Trade Freedom', wrapper=xgb_wrap, prepare=NULL)
@@ -54,7 +54,7 @@ xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE) {
 ###############################################################################
 best_scores <- map_dbl(model_list,xval_new)
 
-map_dbl(model_list['tax_admin'],xval_new)
+map_dbl(model_list['open_gov'],xval_new)
 
 data.frame(model=map_chr(model_list,"label"),score=best_scores) %>%
   mutate(model=fct_reorder(model,score)) %>%

@@ -5,6 +5,7 @@ library(readr)
 library(ggplot2)
 library(vdem)
 
+
 # In addition to what's below, there are other indices
 # - Poverty rate (already in IFs)
 # - Per-capita GDP (already in IFs)
@@ -37,14 +38,36 @@ lib_dem %>%
 # Couldn't find a codebook, but from comparing with their PDF report it looks 
 # like the column I want is f_3
 ###############################################################################
-open_gov <- read_excel('data/WJP-Open-Gov-2015.xlsx',sheet='2015') %>%
-  rename(value=f_3) %>%
-  mutate(year=2015,varstr='Open Government') %>%
-  select(country,year,value,varstr)
+og_2013 <- read_excel('data/FINAL_2017-2018_wjp_rule_of_law_index_HISTORICAL_DATA_FILE.xlsx',
+                      sheet='WJP ROL Index 2012-2013 Scores') %>%
+  rename(country=Country, value=`Factor 5: Open Government`) %>%
+  mutate(year=2013) %>% 
+  select(country,year,value)
 
-# Use same IFs series as Lib Dem. Since all data are from 2015, I could 
-# even use some forecast-only IFs variables for this one if needed.
+get_og <- function(year,sheetname=NULL) {
+  if (is.null(sheetname)) {
+    sheetname <- paste0('WJP ROL Index ',year,' Scores')
+  }
+  read_excel('data/FINAL_2017-2018_wjp_rule_of_law_index_HISTORICAL_DATA_FILE.xlsx',
+             sheet=sheetname,col_names=FALSE) %>%
+    filter(X__1=='Country' | X__1 =='Factor 3: Open Government') %>%
+    t %>% as_tibble() %>%
+    filter(V1 != 'Country') %>%
+    rename(country=V1, value=V2) %>%
+    mutate(year=year) %>%
+    select(country,year,value)
+}
 
+open_gov <- rbind(og_2013,get_og(2014),get_og(2015),get_og(2016),
+                  get_og(2018,'WJP ROL Index 2017-2018 Scores')) %>%
+  mutate(value=as.numeric(value), 
+         varstr='Open Government')
+
+open_gov %>%
+  filter(country %in% c('Japan','Iran','Kenya')) %>%
+  ggplot(aes(x=year,y=value,group=country,color=country)) +
+  geom_line() 
+  
 ##############################################################################
 # Social group equality- VDem v2clsocgrp
 ##############################################################################
@@ -360,7 +383,6 @@ gdppc <- read_csv('data/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_9984840.csv',skip=3)
   mutate(year=as.numeric(as.character(variable)),
          varstr='GDP per capita') %>%
   select(country,year,value,varstr) %>% 
-  fix_adm0 %>%
   na.omit()
   
 gdppc %>%
@@ -393,11 +415,12 @@ poverty %>%
 ###############################################################################
 # rbind everything into a single data frame; I can filter them back out later
 ###############################################################################
-all_jsr <- rbind(biodiversity_habitat,business_environment,child_health,
-                 diag_acc,export_div,gdppc,gender_gap,gov_effect,
-                 group_equality,ict_use,lib_dem,open_gov,poverty,safety,
-                 tax_admin,trade_freedom)
-rm(biodiversity_habitat,business_environment,child_health,
-   diag_acc,export_div,gdppc,gender_gap,gov_effect,
-   group_equality,ict_use,lib_dem,open_gov,poverty,safety,
-   tax_admin,trade_freedom)
+all_jsr <- rbind(biodiversity_habitat, business_environment, child_health,
+                 diag_acc, export_div, gdppc, gender_gap, gov_effect,
+                 group_equality, ict_use, lib_dem, open_gov, poverty, safety,
+                 tax_admin, trade_freedom)
+rm(biodiversity_habitat, business_environment, child_health,
+   diag_acc, export_div, gdppc, gender_gap, gov_effect,
+   group_equality, ict_use, lib_dem, open_gov, poverty, safety,
+   tax_admin, trade_freedom,
+   ipd_all, og_2014, short_names, epi_backcast, get_og, tf_read)

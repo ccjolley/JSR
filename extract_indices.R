@@ -35,8 +35,11 @@ lib_dem %>%
 
 ###############################################################################
 # Open government (WJP)
-# Couldn't find a codebook, but from comparing with their PDF report it looks 
-# like the column I want is f_3
+# They formatted 2013 differently from all the others, just for fun.
+# Note that index values aren't strictly comparable from year to year because
+# of some changes in the survey instrument. Having more years is still worth
+# it, though, because it improves prediction accuracy quite a bit over training
+# on a single year.
 ###############################################################################
 og_2013 <- read_excel('data/FINAL_2017-2018_wjp_rule_of_law_index_HISTORICAL_DATA_FILE.xlsx',
                       sheet='WJP ROL Index 2012-2013 Scores') %>%

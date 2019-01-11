@@ -161,7 +161,7 @@ ml_impute_loess <- function(df,impute_fn=loess_sub) {
 ###############################################################################
 # Reusable cross-validation code
 ###############################################################################
-xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
+xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
                      return_tbl=FALSE) {
   if (verbose) {
     mesg <- as.character(input_list[-c(2,3)]) # don't show wrapper, preparation
@@ -284,91 +284,6 @@ forecast_plot <- function(jsr,ifs,country_,wrap_fun) {
     theme(legend.title=element_blank()) +
     xlab('Year') + ylab('Value') +
     ggtitle(title)
-}
-
-###############################################################################
-# Eventually this will be a wrapper for KNN, but not until I figure out a
-# better way to pass parameters into these wrappers.
-# I'll also want some way to get a verson of xval() that gets me the sort of
-# ldply-friendly output I get here for hyperparameter tuning.
-###############################################################################
-knn_xval <- function(d,k,fold=10,test_frac=0.1) {
-  message('k = ',k)
-  d <- d %>% select(-country,-varstr)
-  nrmse <- sapply(1:fold,function(i) {
-    split <- (runif(nrow(d)) < test_frac)
-    train <- d[!split,]
-    test <- d[split,]
-    pred <- knn_wrap(train,test,k=k)
-    sqrt(mean((test$value-pred)^2))/IQR(test$value)
-  }) 
-  ci <- t.test(nrmse)$conf.int
-  data.frame(k=k,mean=mean(nrmse),lo=ci[1],hi=ci[2])
-}
-
-###############################################################################
-# Feature engineering: Get indicators for membership in geographic regions
-###############################################################################
-add_geo <- function(d) {
-  d %>% mutate(
-    africa = ifelse(country %in% africa,1,0),
-    asia = ifelse(country %in% asia,1,0),
-    lac = ifelse(country %in% lac,1,0),
-    me = ifelse(country %in% me,1,0),
-    e_and_e = ifelse(country %in% e_and_e,1,0),
-    usaid_country = ifelse(country %in% usaid_countries,1,0),
-    high_income = ifelse(country %in% high_income,1,0),
-    umic = ifelse(country %in% umic,1,0),
-    lmic = ifelse(country %in% lmic,1,0),
-    low_income = ifelse(country %in% low_income,1,0))
-}
-
-###############################################################################
-# Feature engineering: Convert gender-disaggregated variables into disparity measures.
-# Scaling such that they should be close to one if male and female rates are
-# equal, 0 if females are zero, 2 if males are zero.
-###############################################################################
-add_gender_disparities <- function(d) {
-  eps <- 1e-6 # avoid dividing by zero
-  death_causes <- c('aids','cancer','diabetes','diarrhea','digestive','intinj',
-                    'malaria','mental','othcomm','othnoncomm','respinfec','respiratory','traffic','unintinj')
-  for (dc in death_causes) {
-    male_str <- paste0('deaths_male_',dc)
-    female_str <- paste0('deaths_female_',dc)
-    new_str <- paste0('gender_disparity_',dc)
-    d[,new_str] <- 2* d[,female_str]/(d[,female_str] + d[,male_str] + eps)
-  }
-  d$gender_disparity_smoking <- 2* d$smoking_female / (d$smoking_female + d$smoking_male + eps)
-  d
-}
-
-###############################################################################
-# Feature engineering: Add derivatives
-###############################################################################
-add_derivs <- function(d) {
-  out <- d 
-  ignore_vars <- c('country','varstr','value','year')
-  get_deriv <- function(d) {
-    # assumes columns are country, year, var
-    names(d) <- c('country','year','x')
-    countries <- d$country %>% unique
-    plyr::ldply(countries,function(i) {
-      di <- d %>% filter(country==i)
-      x_loess <- loess(x ~ year,data=di)
-      t_new <- min(di$year):max(di$year)
-      pred <- predict(x_loess,t_new)
-      dx_dt <- diff(pred) / diff(t_new)
-      data.frame(country=i,year=t_new,slope=c(dx_dt,dx_dt[length(dx_dt)]))
-    })
-  }
-  for (n in setdiff(names(d),ignore_vars)) {
-    print(n)
-    tmp_n <- d %>% select(country,year,n) 
-    gd <- get_deriv(tmp_n)
-    names(gd) <- c('country','year',paste0('slope_',n))
-    out <- left_join(out,gd,by=c('country','year')) 
-  }
-  out
 }
 
 ###############################################################################

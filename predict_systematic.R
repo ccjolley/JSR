@@ -161,22 +161,36 @@ ml_impute_loess <- function(df,impute_fn=loess_sub) {
 ###############################################################################
 # Reusable cross-validation code
 ###############################################################################
-xval <- function(d,wrap_fun,fold=10,test_frac=0.1,lo=NULL,hi=NULL,...) {
+xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
+                     return_tbl=FALSE) {
+  if (verbose) {
+    mesg <- as.character(input_list[-c(2,3)]) # don't show wrapper, preparation
+    print(mesg)
+  }
+  d <- all_jsr %>% 
+    filter(varstr==input_list$label) %>%
+    ml_prep(ifs_basic) %>%
+    na.omit
   if (sum(!is.na(d$value)) < 200) { test_frac = 0.2}
-  sapply(1:fold,function(i) {
-    n <- nrow(d)
-    split <- (runif(n) < test_frac)
-    test <- d[split,] %>% ml_impute %>% select(-country,-varstr)
-    train <- d[!split,]  %>% ml_impute %>% select(-country,-varstr)
-    if (!is.null(lo) & !is.null(hi)) {
-      train$value <- make_infinite(train$value,lo,hi)
+  params <- input_list[-c(1,2,3)]
+  ti <- Sys.time()
+  nrmse <- map_dbl(1:fold,function(i) {
+    split <- (runif(nrow(d)) < test_frac)
+    test <- d[split,] %>% select(-country,-varstr)
+    train <- d[!split,] %>% select(-country,-varstr)
+    if (!is.null(input_list$prepare)) {
+      prep <- input_list$prepare(list(train=train,test=test))
+      train <- prep$train
+      test <- prep$test
     }
-    pred <- wrap_fun(train,test,...)
-    if (!is.null(lo) & !is.null(hi)) {
-      pred <- make_finite(pred,lo,hi)
-    }
+    pred <- do.call(input_list$wrapper,c(list(train,test),params))
     sqrt(mean((test$value-pred)^2))/IQR(test$value)
-  }) %>% mean
+  }) 
+  if (return_tbl) {
+    ci <- t.test(nrmse)$conf.int
+    return(data.frame(params,mean=mean(nrmse),lo=ci[1],hi=ci[2]))
+  }
+  mean(nrmse)
 }
 
 ###############################################################################

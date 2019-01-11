@@ -1,18 +1,16 @@
 source('predict_systematic.R')
 source('wrappers.R')
 source('prepare.R')
-ifs_basic <- load_all_ifs()
 
-tax_admin_models <- list(
-  linear=list(label='Tax Administration', wrapper=lm_wrap, prepare=NULL),
-  lasso_1se=list(label='Tax Administration', wrapper=lm_wrap, prepare=lasso_1se),
-  lasso_min=list(label='Tax Administration', wrapper=lm_wrap, prepare=lasso_min),
-  knn7=list(label='Tax Administration', wrapper=knn_wrap, prepare=NULL, k=7),
-  knn7_1se=list(label='Tax Administration', wrapper=knn_wrap, prepare=lasso_1se, k=7),
-  knn7_min=list(label='Tax Administration', wrapper=knn_wrap, prepare=lasso_min, k=7),
-  svm=list(label='Tax Administration', wrapper=svm_wrap, prepare=NULL),
-  xgb=list(label='Tax Administration', wrapper=xgb_wrap, prepare=NULL))
+model_compare('Tax Administration')
+# looks like all models except linear are within a decent confidence interval of 
+# each other. Best is KNN with k=7 and no LASSO
 
-
-model_comp <- map_dbl(tax_admin_models,xval_new)
-# lasso_1se seems to do the best
+knn_tune('Tax Administration') 
+# best: 0.52, k=24 -- but really, everything above about k=3 looks pretty similar.
+knn_tune('Tax Administration',prepare=lasso_1se) 
+# this takes forever, might want to put LASSO step outside of xval loop...
+# TODO: best way to do this might be to specify two different types of 
+# pre-processing; a feature selection step that can go outside of the xval
+# loop and operations like normalization that can go inside of it
+knn_tune('Tax Administration',prepare=lasso_min) 

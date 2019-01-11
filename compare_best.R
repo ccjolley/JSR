@@ -24,9 +24,7 @@ model_list <- list(
 ###############################################################################
 # Visualize results
 ###############################################################################
-best_scores <- map_dbl(model_list,xval_new)
-
-map_dbl(model_list['open_gov'],xval_new)
+best_scores <- map_dbl(model_list,xval)
 
 data.frame(model=map_chr(model_list,"label"),score=best_scores) %>%
   mutate(model=fct_reorder(model,score)) %>%
@@ -35,6 +33,6 @@ data.frame(model=map_chr(model_list,"label"),score=best_scores) %>%
   coord_flip() +
   theme_USAID +
   xlab(NULL) + ylab('NRMSE') +
-  ggtitle('Scores as of 01/09/2019')
+  ggtitle('Scores as of 01/11/2019')
 
 

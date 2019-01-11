@@ -1,6 +1,8 @@
 source('utils.R')
 source('extract_indices.R')
 source('IFs_plots.R')
+source('wrappers.R')
+source('prepare.R')
 library(ggrepel)
 library(glmnet)
 
@@ -188,7 +190,7 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
   }) 
   if (return_tbl) {
     ci <- t.test(nrmse)$conf.int
-    return(data.frame(params,mean=mean(nrmse),lo=ci[1],hi=ci[2]))
+    return(data.frame(mean=mean(nrmse),lo=ci[1],hi=ci[2]))
   }
   mean(nrmse)
 }
@@ -308,3 +310,53 @@ countries_wrong <- function(d,wrap_fun,filter_year=NULL,test_frac=0.3,fold=10) {
     summarize(count=n(),mean_dev=mean(dev)) %>%
     arrange(desc(count))
 }
+
+###############################################################################
+# As a first step toward model selection, compare how different algorithms
+# do with default parameters.
+###############################################################################
+model_compare <- function(varstr) {
+  models <- list(
+    linear=list(label=varstr, wrapper=lm_wrap, prepare=NULL),
+    lasso_1se=list(label=varstr, wrapper=lm_wrap, prepare=lasso_1se),
+    lasso_min=list(label=varstr, wrapper=lm_wrap, prepare=lasso_min),
+    knn7=list(label=varstr, wrapper=knn_wrap, prepare=NULL, k=7),
+    knn7_1se=list(label=varstr, wrapper=knn_wrap, prepare=lasso_1se, k=7),
+    knn7_min=list(label=varstr, wrapper=knn_wrap, prepare=lasso_min, k=7),
+    svm=list(label=varstr, wrapper=svm_wrap, prepare=NULL),
+    xgb=list(label=varstr, wrapper=xgb_wrap, prepare=NULL)
+  )
+  ifs_basic <- load_all_ifs()
+  lyr::ldply(models,xval,return_tbl=TRUE) %>%
+    mutate(.id=fct_reorder(.id,desc(mean)),
+           label=ifelse(mean==min(mean),round(mean,3),NA)) %>%
+    ggplot(aes(x=.id,y=mean)) +
+      geom_bar(stat='identity',fill='#A7C6ED') +
+      theme_USAID +
+      ylab('NRMSE') + xlab(NULL) +
+      geom_errorbar(aes(ymin=lo,ymax=hi), width=0.5) +
+      coord_flip() +
+      geom_text(aes(y=0.05,label=label),hjust=-0.1)
+}
+
+###############################################################################
+# KNN hyperparameter turning
+###############################################################################
+knn_tune <- function(varstr, prepare_=NULL, kmax=25) {
+  models <- plyr::llply(1:kmax,function(k) {
+    list(label=varstr, wrapper=knn_wrap, prepare=prepare_, k=k)
+  })
+  names(models) <- paste0('k_',1:kmax)
+  ifs_basic <- load_all_ifs()
+  compare <- plyr::ldply(models,xval,fold=100,return_tbl=TRUE) 
+  result <- paste0('Best: ',round(min(compare$mean),3),', k = ',which.min(compare$mean))
+  compare %>%
+    mutate(k=row_number()) %>%
+    ggplot(aes(x=k,y=mean)) +
+    geom_errorbar(aes(ymin=lo,ymax=hi), width=0.5,color='#6C6463') +
+    geom_point(size=2,color='#BA0C2F') +
+    theme_USAID +
+    ylab('NRMSE') + xlab('k') +
+    annotate('label',y=(max(compare$mean)+max(compare$hi))/2,x=kmax/5,label=result)
+}
+

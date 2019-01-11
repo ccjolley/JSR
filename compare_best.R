@@ -22,34 +22,6 @@ model_list <- list(
 )
 
 ###############################################################################
-# Updated version of cross-validation
-###############################################################################
-xval_new <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE) {
-  if (verbose) {
-    mesg <- as.character(input_list[-c(2,3)]) # don't show wrapper, preparation
-    print(mesg)
-  }
-  d <- all_jsr %>% 
-    filter(varstr==input_list$label) %>%
-    ml_prep(ifs_basic)
-  if (sum(!is.na(d$value)) < 200) { test_frac = 0.2}
-  params <- input_list[-c(1,2,3)]
-  map_dbl(1:fold,function(i) {
-    n <- nrow(d)
-    split <- (runif(n) < test_frac)
-    test <- d[split,] %>% ml_impute %>% select(-country,-varstr)
-    train <- d[!split,]  %>% ml_impute %>% select(-country,-varstr)
-    if (!is.null(input_list$prepare)) {
-      prep <- input_list$prepare(list(train=train,test=test))
-      train <- prep$train
-      test <- prep$test
-    }
-    pred <- do.call(input_list$wrapper,c(list(train,test),params))
-    sqrt(mean((test$value-pred)^2))/IQR(test$value)
-  }) %>% mean
-}
-
-###############################################################################
 # Visualize results
 ###############################################################################
 best_scores <- map_dbl(model_list,xval_new)

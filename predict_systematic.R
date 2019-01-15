@@ -192,17 +192,17 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
 ###############################################################################
 model_compare <- function(varstr) {
   models <- list(
-    linear=list(label=varstr, wrapper=lm_wrap, prepare=NULL),
-    lasso_1se=list(label=varstr, wrapper=lm_wrap, prepare=lasso_1se),
-    lasso_min=list(label=varstr, wrapper=lm_wrap, prepare=lasso_min),
-    knn7=list(label=varstr, wrapper=knn_wrap, prepare=NULL, k=7),
-    knn7_1se=list(label=varstr, wrapper=knn_wrap, prepare=lasso_1se, k=7),
-    knn7_min=list(label=varstr, wrapper=knn_wrap, prepare=lasso_min, k=7),
-    svm=list(label=varstr, wrapper=svm_wrap, prepare=NULL),
-    xgb=list(label=varstr, wrapper=xgb_wrap, prepare=NULL)
+    linear=list(label=varstr, wrapper=lm_wrap),
+    lasso_1se=list(label=varstr, wrapper=lm_wrap, feature=lasso_1se),
+    lasso_min=list(label=varstr, wrapper=lm_wrap, feature=lasso_min),
+    knn7=list(label=varstr, wrapper=knn_wrap, k=7),
+    knn7_1se=list(label=varstr, wrapper=knn_wrap, feature=lasso_1se, k=7),
+    knn7_min=list(label=varstr, wrapper=knn_wrap, feature=lasso_min, k=7),
+    svm=list(label=varstr, wrapper=svm_wrap),
+    xgb=list(label=varstr, wrapper=xgb_wrap)
   )
   ifs_basic <- load_all_ifs()
-  lyr::ldply(models,xval,return_tbl=TRUE) %>%
+  plyr::ldply(models,xval,return_tbl=TRUE) %>%
     mutate(.id=fct_reorder(.id,desc(mean)),
            label=ifelse(mean==min(mean),round(mean,3),NA)) %>%
     ggplot(aes(x=.id,y=mean)) +

@@ -83,11 +83,6 @@ ml_prep <- function(jsr,ifs) {
 # To fill in missing IFs values, call an impute function. For now just using
 # something simple (median); could try something more sophisticated later.
 ################################################################################
-median_sub <- function(s) {
-  s[is.na(s)] <- median(s[!is.na(s)])
-  s
-}
-
 loess_sub <- function(df,extrapolation_window=10) {
   if (length(intersect(c('country','year','x'),names(df))) != 3) {
     message('ERROR in loess_sub, columns should be country, year, x')
@@ -127,15 +122,6 @@ loess_sub <- function(df,extrapolation_window=10) {
 #   loess_sub %>%
 #   ggplot(aes(x=year,y=x)) + geom_point() + geom_line()
 
-ml_impute <- function(d,impute_fn=median_sub) {
-  res <- d %>% 
-    group_by(country) %>%
-    arrange(year) %>%
-    mutate_at(vars(-value,-varstr,-country),impute_fn) %>% 
-    ungroup %>%
-    na.omit
-  res
-}
 
 library(purrr)
 ml_impute_loess <- function(df,impute_fn=loess_sub) {
@@ -166,7 +152,8 @@ ml_impute_loess <- function(df,impute_fn=loess_sub) {
 xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
                      return_tbl=FALSE) {
   if (verbose) {
-    mesg <- as.character(input_list[-c(2,3)]) # don't show wrapper, preparation
+    show <- names(input_list) %in% c('wrapper','prepare','feature')
+    mesg <- as.character(input_list[!show]) # don't show wrapper, preparation
     print(mesg)
   }
   d <- all_jsr %>% 
@@ -174,8 +161,11 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
     ml_prep(ifs_basic) %>%
     na.omit
   if (sum(!is.na(d$value)) < 200) { test_frac = 0.2}
-  params <- input_list[-c(1,2,3)]
-  ti <- Sys.time()
+  param_ind <- !(names(input_list) %in% c('label','wrapper','prepare','feature'))
+  params <- input_list[param_ind]
+  if (!is.null(input_list$feature)) {
+    d <- input_list$feature(d)
+  }
   nrmse <- map_dbl(1:fold,function(i) {
     split <- (runif(nrow(d)) < test_frac)
     test <- d[split,] %>% select(-country,-varstr)
@@ -340,16 +330,16 @@ model_compare <- function(varstr) {
 }
 
 ###############################################################################
-# KNN hyperparameter turning
+# KNN hyperparameter tuning
 ###############################################################################
-knn_tune <- function(varstr, prepare_=NULL, kmax=25) {
+knn_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
   models <- plyr::llply(1:kmax,function(k) {
-    list(label=varstr, wrapper=knn_wrap, prepare=prepare_, k=k)
+    list(label=varstr, wrapper=knn_wrap, prepare=prepare, feature=feature, k=k)
   })
   names(models) <- paste0('k_',1:kmax)
-  ifs_basic <- load_all_ifs()
   compare <- plyr::ldply(models,xval,fold=100,return_tbl=TRUE) 
   result <- paste0('Best: ',round(min(compare$mean),3),', k = ',which.min(compare$mean))
+  compare %>% arrange(mean) %>% print
   compare %>%
     mutate(k=row_number()) %>%
     ggplot(aes(x=k,y=mean)) +
@@ -360,3 +350,47 @@ knn_tune <- function(varstr, prepare_=NULL, kmax=25) {
     annotate('label',y=(max(compare$mean)+max(compare$hi))/2,x=kmax/5,label=result)
 }
 
+###############################################################################
+# SVM hyperparameter tuning
+# With just two parameters, a grid search with 8 in each direction probably
+# makes more sense than a random search.
+###############################################################################
+## Delete this later
+varstr <- "Tax Administration"
+ntry <- 60
+cost_range=c(1,1e5)
+eps_range=c(0,1)
+prepare <- NULL
+feature <- NULL
+
+svm_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
+                     cost_range=c(1,1e5),eps_range=c(0,1)) {
+  models <- plyr::llply(1:ntry,function(i) {
+    eps <- runif(1,min=eps_range[1],max=eps_range[2]) %>% round(4)
+    lcost_range <- log(cost_range)
+    cost <- runif(1,min=lcost_range[1],max=lcost_range[2]) %>% exp %>% round(1)
+    list(label=varstr, wrapper=svm_wrap, prepare=prepare, feature=feature, cost=cost, epsilon=eps)
+  })
+  names(models) <- map_chr(models,function(x) paste0('svm_',x$cost,'_',x$epsilon))
+  compare <- plyr::ldply(models,xval,fold=fold,return_tbl=TRUE) 
+  compare$cost <- map_dbl(models,'cost')
+  compare$epsilon <- map_dbl(models,'epsilon')
+  compare %>% arrange(mean) %>% head(10) %>% print
+  ggplot(compare,aes(x=epsilon,y=cost,color=mean)) +
+    geom_point(size=2) +
+    theme_USAID +
+    scale_color_distiller(palette = "Spectral") +
+    scale_y_log10() +
+    ylab('Cost') + xlab('Epsilon') 
+}
+
+###############################################################################
+# xgboost hyperparameter tuning
+# I feel like this needs to take a couple of steps; first some manual tuning
+# to get close to the ideal of 100 iterations before automatic stopping, then
+# tuning parameters (including nrounds) by randomly exploring 60 points close
+# to the set of parameters that gets me 100 rounds.
+###############################################################################
+svm_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
+  
+}

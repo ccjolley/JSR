@@ -39,11 +39,20 @@ tax_admin_wide %>%
   head(10)
 # I don't see an obvious trend in who went up or down a lot between 2012 and 2016.
 
+###############################################################################
+# Initial model testing
+###############################################################################
 model_compare('Tax Administration')
-# The model to beat is LASSO
+# The model to beat is LASSO, with NRMSE = 0.452
 
 lasso_best <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se)
 pred_scatter(lasso_best,filter_year=c(2012,2016))
+# some are too high...
+lasso_max <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se, max_enforce=TRUE)
+pred_scatter(lasso_max,filter_year=c(2012,2016))
+countries_wrong(lasso_best,fold=30) %>% head(10)
+# I feel like major oil producers figure prominently here, but are just as likely
+# to be wrong in both directions...
 
 ###############################################################################
 # k-nearest neighbors
@@ -59,6 +68,7 @@ knn_best <- list(label='Tax Administration', wrapper=knn_wrap, feature=lasso_1se
 
 pred_scatter(knn_best,filter_year=c(2012,2016))
 # generally goes in the right direction, but with a lot of spread
+countries_wrong(knn_best,fold=30) %>% head(10)
 
 ###############################################################################
 # SVM

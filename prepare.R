@@ -35,6 +35,8 @@ lasso_1se <- function(d) {
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
   tmp <- coef(cv.out,s=cv.out$lambda.1se) 
   n <- colnames(x)[tmp@i]
+  message('Features selected with LASSO 1se:')
+  print(n)
   d %>% select(country,varstr,year,value,n)
 }
 
@@ -44,6 +46,8 @@ lasso_min <- function(d) {
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
   tmp <- coef(cv.out,s=cv.out$lambda.min) 
   n <- colnames(x)[tmp@i]
+  message('Features selected with LASSO min:')
+  print(n)
   d %>% select(country,varstr,year,value,n)
 }
 

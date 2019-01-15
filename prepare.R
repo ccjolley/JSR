@@ -20,32 +20,31 @@ normalize <- function(l) {
 }
 
 ###############################################################################
-# Feature selection: Get a reduced set of features using LASSO
+# These feature-engineering functions should take a single argument, which is
+# a dataframe passed to them *before* the train/test split. Rather than 
+# transforming existing features (e.g. through normalization), these functions
+# should be creating new features in a way that won't constitute data snooping.
 ###############################################################################
-lasso_1se <- function(l) {
-  train <- l$train
-  test <- l$test
-  x <- train %>% select(-year,-value) %>% as.matrix
-  y <- train$value
+
+###############################################################################
+# Feature selection: LASSO 
+###############################################################################
+lasso_1se <- function(d) {
+  x <- d %>% select(-year,-value,-country,-varstr) %>% as.matrix
+  y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
   tmp <- coef(cv.out,s=cv.out$lambda.1se) 
   n <- colnames(x)[tmp@i]
-  train <- train %>% select(year,value,n)
-  test <- test %>% select(year,value,n)
-  list(train=train,test=test)
+  d %>% select(country,varstr,year,value,n)
 }
 
-lasso_min <- function(l) {
-  train <- l$train
-  test <- l$test
-  x <- train %>% select(-year,-value) %>% as.matrix
-  y <- train$value
+lasso_min <- function(d) {
+  x <- d %>% select(-year,-value,-country,-varstr) %>% as.matrix
+  y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
-  tmp <- coef(cv.out,s=cv.out$lambda.min)
+  tmp <- coef(cv.out,s=cv.out$lambda.min) 
   n <- colnames(x)[tmp@i]
-  train <- train %>% select(year,value,n)
-  test <- test %>% select(year,value,n)
-  list(train=train,test=test)
+  d %>% select(country,varstr,year,value,n)
 }
 
 ###############################################################################

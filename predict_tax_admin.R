@@ -1,9 +1,49 @@
 source('predict_systematic.R')
 ifs_basic <- load_all_ifs()
 
+###############################################################################
+# Some basic exploration
+###############################################################################
+all_jsr %>% filter(varstr=='Tax Administration') %>%
+  arrange(value) %>% head(10)
+# some of the lowest-scoring countries are very poor (Chad, South Sudan), but
+# others are middle-income (Iraq, Libya, Sri Lanka)
+
+all_jsr %>% filter(varstr=='Tax Administration') %>%
+  arrange(desc(value)) %>% head(10)
+# all rich countries at the top
+
+tax_admin_wide <- all_jsr %>% 
+  filter(varstr=='Tax Administration') %>%
+  select(country,year,value) %>%
+  dcast(country ~ year) %>%
+  na.omit 
+
+ggplot(tax_admin_wide,aes(x=`2012`,y=`2016`)) +
+  geom_jitter(size=2,color='#002F6C',alpha=0.5) +
+  theme_USAID +
+  ggtitle('Tax Administration scores')
+# variation between the two years measured can be pretty substantial
+
+sqrt(mean((tax_admin_wide$`2016` - tax_admin_wide$`2012`)^2)) / IQR(tax_admin_wide$`2016`)
+# So if we just predicted 2016 values based on 2012 values, we'd have an NRMSE of about 0.81
+
+tax_admin_wide %>% 
+  mutate(diff=`2016` - `2012`) %>%
+  arrange(desc(diff)) %>%
+  head(10)
+
+tax_admin_wide %>% 
+  mutate(diff=`2016` - `2012`) %>%
+  arrange(diff) %>%
+  head(10)
+# I don't see an obvious trend in who went up or down a lot between 2012 and 2016.
+
 model_compare('Tax Administration')
-# looks like all models except linear are within a decent confidence interval of 
-# each other. Best is KNN with k=7 and no LASSO
+# The model to beat is LASSO
+
+lasso_best <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se)
+pred_scatter(lasso_best,filter_year=c(2012,2016))
 
 ###############################################################################
 # k-nearest neighbors
@@ -17,7 +57,7 @@ knn_tune('Tax Administration',feature=lasso_min)
 
 knn_best <- list(label='Tax Administration', wrapper=knn_wrap, feature=lasso_1se, k=10)
 
-pred_scatter(knn_best)
+pred_scatter(knn_best,filter_year=c(2012,2016))
 # generally goes in the right direction, but with a lot of spread
 
 ###############################################################################

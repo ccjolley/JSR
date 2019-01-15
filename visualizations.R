@@ -5,27 +5,39 @@ library(dplyr)
 ###############################################################################
 # Scatterplot visualization
 ###############################################################################
-pred_scatter <- function(d,wrap_fun,filter_year=NULL,test_frac=0.3,lo=NULL,hi=NULL,...) {
+pred_scatter <- function(input_list,filter_year=NULL,test_frac=0.3,lo=NULL,hi=NULL,...) {
   if (is.null(filter_year)) { filter_year <- max(d$year)}
   if (length(filter_year)==1) {
     title <- paste0(d$varstr[1],' (',filter_year,')')
   } else {
     title <- paste0(d$varstr[1],' (',first(filter_year),'-',last(filter_year),')')
   }
+  d <- all_jsr %>% 
+    filter(varstr==input_list$label) %>%
+    ml_prep(ifs_basic) %>%
+    na.omit
+  if (!is.null(input_list$feature)) {
+    d <- input_list$feature(d)
+  }
   n <- nrow(d)
   split <- (runif(n) < test_frac)
-  if (!is.null(lo) & !is.null(hi)) {
-    d$value <- make_infinite(d$value,lo,hi)
-  }
-  train <- d[!split,]  %>% ml_impute %>% select(-country,-varstr)
-  tmp <- d[split,] %>% ml_impute 
+  # if (!is.null(lo) & !is.null(hi)) {
+  #   d$value <- make_infinite(d$value,lo,hi)
+  # }
+  train <- d[!split,] %>% select(-country,-varstr)
+  tmp <- d[split,] 
   test <- tmp %>% select(-country,-varstr)
+  if (!is.null(input_list$prepare)) {
+    prep <- input_list$prepare(list(train=train,test=test))
+    train <- prep$train
+    test <- prep$test
+  }
   plotme <- tmp %>% select(country,year,value)
-  plotme$pred <- wrap_fun(train,test,...)
-  if (!is.null(lo) & !is.null(hi)) {
-    plotme$value <- make_finite(plotme$value,lo,hi)
-    plotme$pred <- make_finite(plotme$pred,lo,hi)
-  }  
+  plotme$pred <- input_list$wrapper(train,test,...)
+  # if (!is.null(lo) & !is.null(hi)) {
+  #   plotme$value <- make_finite(plotme$value,lo,hi)
+  #   plotme$pred <- make_finite(plotme$pred,lo,hi)
+  # }  
   plotme %>%
     filter(year %in% filter_year) %>%
     mutate(ndev=abs(value-pred)/IQR(plotme$value),

@@ -30,7 +30,7 @@ normalize <- function(l) {
 # Feature selection: LASSO 
 ###############################################################################
 lasso_1se <- function(d) {
-  x <- d %>% select(-year,-value,-country,-varstr) %>% as.matrix
+  x <- d %>% select(-value,-country,-varstr) %>% as.matrix
   y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
   tmp <- coef(cv.out,s=cv.out$lambda.1se) 
@@ -41,7 +41,7 @@ lasso_1se <- function(d) {
 }
 
 lasso_min <- function(d) {
-  x <- d %>% select(-year,-value,-country,-varstr) %>% as.matrix
+  x <- d %>% select(-value,-country,-varstr) %>% as.matrix
   y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
   tmp <- coef(cv.out,s=cv.out$lambda.min) 

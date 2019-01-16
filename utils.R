@@ -33,7 +33,9 @@ load_ifs <- function(fnames,verbose=TRUE) {
              country = sub(', TrafficAcc','',country),
              country = sub(', UnIntInj','',country),    
              country = sub(', Female','',country),      
-             country = sub(', Male','',country)) %>%
+             country = sub(', Male','',country),
+             country = sub(', Skilled','',country),
+             country = sub(', Unskilled','',country)) %>%
       select(country,year,value)
     names(tmp)[3] <- sub('\\.txt','',f)
     if (is.null(j)) {

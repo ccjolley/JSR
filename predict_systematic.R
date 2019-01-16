@@ -3,6 +3,7 @@ source('extract_indices.R')
 source('IFs_plots.R')
 source('wrappers.R')
 source('prepare.R')
+source('tax_vars.R')
 library(ggrepel)
 library(glmnet)
 library(purrr)
@@ -46,12 +47,15 @@ load_raw_ifs <- function() {
   diplo_vars <- load_ifs(list.files(pattern='.*txt$'))
   setwd('../state_failure')
   state_fail_vars <- load_ifs(list.files(pattern='.*txt$'))
+  setwd('../energy')
+  energy_vars <- load_ifs(list.files(pattern='.*txt$'))
   setwd('../poverty')
   poverty_vars <- load_ifs(list.files(pattern='.*txt$'))
   setwd('..')
   root_vars <- load_ifs(c('gini.txt','urban.txt','pop_density.txt','population.txt',
                           'gdppc_mer.txt','gdppc_ppp.txt'))
   setwd(wd)
+  tax_vars <- get_tax_vars()
   full_join(biz_vars,demo_vars,by=c('country','year')) %>%
     full_join(ed_vars,by=c('country','year')) %>%
     full_join(gender_vars,by=c('country','year')) %>%
@@ -63,6 +67,8 @@ load_raw_ifs <- function() {
     full_join(diplo_vars,by=c('country','year')) %>%
     full_join(state_fail_vars,by=c('country','year')) %>%
     full_join(poverty_vars,by=c('country','year')) %>%
+    full_join(energy_vars,by=c('country','year')) %>%
+    full_join(tax_vars,by=c('country','year')) %>%
     full_join(root_vars,by=c('country','year'))
 }
 

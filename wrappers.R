@@ -10,15 +10,28 @@ library(xgboost)
 
 ###############################################################################
 # Basic linear model
+# TODO: doesn't quite work with pred_scatter yet; not passing parameters in
+# correctly.
 ###############################################################################
-lm_wrap <- function(train,test,...) {
+lm_wrap <- function(train,test,min_enforce=FALSE,max_enforce=FALSE,...) {
   if (!('value' %in% names(test))) { test$value <- NA }
   is_const <- (apply(train,2,var,na.rm=TRUE) == 0)
   is_const['value'] <- FALSE
   train <- train[!is_const]
   test <- test[!is_const]
   my_lm <- lm(value ~ .,data=train)
-  predict(my_lm,test)
+  pred <- predict(my_lm,test) 
+  message(paste0('DEBUG: ',max(pred)))
+  message(max(train$value))
+  if (min_enforce) {
+    pred[pred < min(train$value)] <- min(train$value)
+  }
+  if (max_enforce) {
+    message('Here it is.')
+    pred[pred > max(train$value)] <- max(train$value)
+  }
+  message(paste0('DEBUG: ',max(pred)))
+  pred
 }
 
 ###############################################################################

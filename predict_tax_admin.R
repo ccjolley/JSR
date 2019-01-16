@@ -1,4 +1,5 @@
 source('predict_systematic.R')
+source('visualizations.R')
 ifs_basic <- load_all_ifs()
 
 ###############################################################################
@@ -43,16 +44,20 @@ tax_admin_wide %>%
 # Initial model testing
 ###############################################################################
 model_compare('Tax Administration')
-# The model to beat is LASSO, with NRMSE = 0.452
+# Most models (except linear) are comparable, with no real consistency in ranking
+# when I run this repeatedly.
 
 lasso_best <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se)
 pred_scatter(lasso_best,filter_year=c(2012,2016))
 # some are too high...
 lasso_max <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se, max_enforce=TRUE)
 pred_scatter(lasso_max,filter_year=c(2012,2016))
-countries_wrong(lasso_best,fold=30) %>% head(10)
-# I feel like major oil producers figure prominently here, but are just as likely
-# to be wrong in both directions...
+countries_wrong(lasso_max,fold=30) %>% head(10)
+# Major oil producers figure prominently here (Iraq, Kuwait, Saudi Arabia,
+# Venezuela, Nigeria).
+# We also see larger errors in countries that saw a lot of change between 
+# 2012 and 2016 (Georgia, Turkmenistan, Myanmar). Might suggest that models
+# that can get interactions with the year are going to work better.
 
 ###############################################################################
 # k-nearest neighbors

@@ -21,16 +21,12 @@ lm_wrap <- function(train,test,min_enforce=FALSE,max_enforce=FALSE,...) {
   test <- test[!is_const]
   my_lm <- lm(value ~ .,data=train)
   pred <- predict(my_lm,test) 
-  message(paste0('DEBUG: ',max(pred)))
-  message(max(train$value))
   if (min_enforce) {
     pred[pred < min(train$value)] <- min(train$value)
   }
   if (max_enforce) {
-    message('Here it is.')
     pred[pred > max(train$value)] <- max(train$value)
   }
-  message(paste0('DEBUG: ',max(pred)))
   pred
 }
 

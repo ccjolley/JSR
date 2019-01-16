@@ -138,16 +138,39 @@ ml_impute_loess <- function(df,impute_fn=loess_sub) {
   }
   df
 }
-# TODO: do I still need ml_impute now that I have loess? Check to see what
-# it's actually doing in the places where it's being called. To me, it makes
-# sense (now) to impute just once on the IFs data at the beginning, rather
-# than doing so after the train-test split, since I know that the future 
-# data won't contain any missing values.
-
 
 ###############################################################################
 # Reusable cross-validation code
 ###############################################################################
+xval_prep <- function(input_list) {
+  d <- all_jsr %>% 
+    filter(varstr==input_list$label) %>%
+    ml_prep(ifs_basic) %>%
+    na.omit
+  if (!is.null(input_list$feature)) {
+    d <- input_list$feature(d)
+  }
+  d
+}
+
+get_test <- function(d,input_list,test_frac) {
+  split <- (runif(nrow(d)) < test_frac)
+  test <- d[split,] %>% select(-country,-varstr)
+  train <- d[!split,] %>% select(-country,-varstr)
+  if (!is.null(input_list$prepare)) {
+    prep <- input_list$prepare(list(train=train,test=test))
+    train <- prep$train
+    test <- prep$test
+  }
+  param_ind <- !(names(input_list) %in% c('label','wrapper','prepare','feature'))
+  params <- input_list[param_ind]
+  test$pred <- do.call(input_list$wrapper,c(list(train,test),params))
+  test$country <- d$country[split]
+  test$varstr <- d$varstr[split]
+  test
+}
+
+
 xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
                      return_tbl=FALSE) {
   if (verbose) {
@@ -155,27 +178,11 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
     mesg <- as.character(input_list[!show]) # don't show wrapper, preparation
     print(mesg)
   }
-  d <- all_jsr %>% 
-    filter(varstr==input_list$label) %>%
-    ml_prep(ifs_basic) %>%
-    na.omit
+  d <- xval_prep(input_list)
   if (sum(!is.na(d$value)) < 200) { test_frac = 0.2}
-  param_ind <- !(names(input_list) %in% c('label','wrapper','prepare','feature'))
-  params <- input_list[param_ind]
-  if (!is.null(input_list$feature)) {
-    d <- input_list$feature(d)
-  }
   nrmse <- map_dbl(1:fold,function(i) {
-    split <- (runif(nrow(d)) < test_frac)
-    test <- d[split,] %>% select(-country,-varstr)
-    train <- d[!split,] %>% select(-country,-varstr)
-    if (!is.null(input_list$prepare)) {
-      prep <- input_list$prepare(list(train=train,test=test))
-      train <- prep$train
-      test <- prep$test
-    }
-    pred <- do.call(input_list$wrapper,c(list(train,test),params))
-    sqrt(mean((test$value-pred)^2))/IQR(test$value)
+    test <- get_test(d,input_list,test_frac)
+    sqrt(mean((test$value-test$pred)^2))/IQR(test$value)
   }) 
   if (return_tbl) {
     ci <- t.test(nrmse)$conf.int
@@ -183,8 +190,6 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
   }
   mean(nrmse)
 }
-
-
 
 ###############################################################################
 # As a first step toward model selection, compare how different algorithms

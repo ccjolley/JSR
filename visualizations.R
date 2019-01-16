@@ -6,38 +6,15 @@ library(dplyr)
 # Scatterplot visualization
 ###############################################################################
 pred_scatter <- function(input_list,filter_year=NULL,test_frac=0.3,lo=NULL,hi=NULL,...) {
+  d <- xval_prep(input_list)
   if (is.null(filter_year)) { filter_year <- max(d$year)}
   if (length(filter_year)==1) {
     title <- paste0(d$varstr[1],' (',filter_year,')')
   } else {
     title <- paste0(d$varstr[1],' (',first(filter_year),'-',last(filter_year),')')
   }
-  d <- all_jsr %>% 
-    filter(varstr==input_list$label) %>%
-    ml_prep(ifs_basic) %>%
-    na.omit
-  if (!is.null(input_list$feature)) {
-    d <- input_list$feature(d)
-  }
-  n <- nrow(d)
-  split <- (runif(n) < test_frac)
-  # if (!is.null(lo) & !is.null(hi)) {
-  #   d$value <- make_infinite(d$value,lo,hi)
-  # }
-  train <- d[!split,] %>% select(-country,-varstr)
-  tmp <- d[split,] 
-  test <- tmp %>% select(-country,-varstr)
-  if (!is.null(input_list$prepare)) {
-    prep <- input_list$prepare(list(train=train,test=test))
-    train <- prep$train
-    test <- prep$test
-  }
-  plotme <- tmp %>% select(country,year,value)
-  plotme$pred <- input_list$wrapper(train,test,...)
-  # if (!is.null(lo) & !is.null(hi)) {
-  #   plotme$value <- make_finite(plotme$value,lo,hi)
-  #   plotme$pred <- make_finite(plotme$pred,lo,hi)
-  # }  
+  test <- get_test(d,input_list,test_frac)
+  plotme <- test %>% select(country,year,value,pred)
   plotme %>%
     filter(year %in% filter_year) %>%
     mutate(ndev=abs(value-pred)/IQR(plotme$value),
@@ -110,14 +87,28 @@ forecast_plot <- function(jsr,ifs,country_,wrap_fun) {
 ###############################################################################
 # Handy function to spot systematic errors
 ###############################################################################
-countries_wrong <- function(d,wrap_fun,filter_year=NULL,test_frac=0.3,fold=10) {
+countries_wrong <- function(input_list,test_frac=0.3,fold=10) {
+  # TODO: this is now getting used in a bunch of different places; I should
+  # factor it out
+  d <- all_jsr %>% 
+    filter(varstr==input_list$label) %>%
+    ml_prep(ifs_basic) %>%
+    na.omit
+  if (!is.null(input_list$feature)) {
+    d <- input_list$feature(d)
+  }
   plyr::ldply(1:fold,function(i) {
     n <- nrow(d)
     split <- (runif(n) < test_frac)
-    train <- d[!split,]  %>% ml_impute %>% select(-country,-varstr)
-    tmp <- d[split,] %>% ml_impute 
+    train <- d[!split,]  %>% select(-country,-varstr)
+    tmp <- d[split,] 
     test <- tmp %>% select(-country,-varstr)
-    pred <- wrap_fun(train,test)
+    if (!is.null(input_list$prepare)) {
+      prep <- input_list$prepare(list(train=train,test=test))
+      train <- prep$train
+      test <- prep$test
+    }
+    pred <- input_list$wrapper(train,test)
     tmp$ndev <- abs(pred - test$value)
     tmp$dev <- pred - test$value
     cutoff <- quantile(tmp$ndev,probs=0.95)
@@ -129,3 +120,5 @@ countries_wrong <- function(d,wrap_fun,filter_year=NULL,test_frac=0.3,fold=10) {
     summarize(count=n(),mean_dev=mean(dev)) %>%
     arrange(desc(count))
 }
+
+

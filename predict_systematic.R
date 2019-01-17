@@ -251,14 +251,6 @@ knn_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
 # With just two parameters, a grid search with 8 in each direction probably
 # makes more sense than a random search.
 ###############################################################################
-## Delete this later
-varstr <- "Tax Administration"
-ntry <- 60
-cost_range=c(1,1e5)
-eps_range=c(0,1)
-prepare <- NULL
-feature <- NULL
-
 svm_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
                      cost_range=c(1,1e5),eps_range=c(0,1)) {
   models <- plyr::llply(1:ntry,function(i) {
@@ -287,6 +279,29 @@ svm_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
 # tuning parameters (including nrounds) by randomly exploring 60 points close
 # to the set of parameters that gets me 100 rounds.
 ###############################################################################
-svm_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
+xgb_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
   
+}
+
+###############################################################################
+# Feature selection with LASSO
+###############################################################################
+lasso_features <- function(input_list,keep=0.9,fold=100,cutoff='1se') {
+  d <- xval_prep(input_list)
+  map(1:fold, function(i) {
+    split <- (runif(nrow(d)) < keep)
+    x <- d[split,] %>% select(-value,-country,-varstr) %>% as.matrix
+    y <- d$value[split]    
+    cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
+    if (cutoff == '1se') {
+      tmp <- coef(cv.out,s=cv.out$lambda.1se) 
+    } else {
+      tmp <- coef(cv.out,s=cv.out$lambda.min)
+    }
+    colnames(x)[tmp@i]
+  }) %>%
+    unlist %>%
+    table %>%
+    as_tibble %>%
+    arrange(desc(n))
 }

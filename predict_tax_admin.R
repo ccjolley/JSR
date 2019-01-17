@@ -40,6 +40,9 @@ tax_admin_wide %>%
   head(10)
 # I don't see an obvious trend in who went up or down a lot between 2012 and 2016.
 
+feature_list <- list(label='Tax Administration') %>% lasso_features(fold=20)
+# 20 rounds took ~1 min
+
 ###############################################################################
 # Initial model testing
 ###############################################################################

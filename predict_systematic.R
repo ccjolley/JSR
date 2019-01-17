@@ -303,5 +303,37 @@ lasso_features <- function(input_list,keep=0.9,fold=100,cutoff='1se') {
     unlist %>%
     table %>%
     as_tibble %>%
-    arrange(desc(n))
+    arrange(desc(n)) %>%
+    rename(feature=1)
 }
+
+###############################################################################
+# Feature selection with xgboost
+###############################################################################
+xgb_features <- function(input_list,test_frac=0.3,fold=20,...) {
+  d <- xval_prep(input_list)
+  map(1:fold, function(i) {
+    split <- (runif(nrow(d)) < test_frac)
+    test <- d[split,] %>% select(-country,-varstr)
+    train <- d[!split,] %>% select(-country,-varstr)
+    dtrain <- xgb.DMatrix(data=select(train,-value) %>% as.matrix,
+                          label=train$value)
+    dtest <- xgb.DMatrix(data=select(test,-value) %>% as.matrix,
+                         label=test$value)
+    # use watchlist to stop early and avoid overfitting
+    watchlist <- list(train=dtrain, test=dtest)
+    my_xgb <- xgb.train(data=dtrain,nrounds=200,watchlist=watchlist,  
+                        early_stopping_rounds=5,verbose=0,nthread=4,...)
+    imp <- xgb.importance(feature_names = names(train), model = my_xgb)
+    # we're interested in the gain; this is typically skewed so that
+    # most features have very low gain and few are higher than the mean
+    imp$Feature[imp$Gain > mean(imp$Gain)]
+  }) %>%
+    unlist %>%
+    table %>%
+    as_tibble %>%
+    arrange(desc(n)) %>%
+    rename(feature=1)
+}
+
+

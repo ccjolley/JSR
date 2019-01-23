@@ -40,19 +40,27 @@ tax_admin_wide %>%
   head(10)
 # I don't see an obvious trend in who went up or down a lot between 2012 and 2016.
 
-feature_list <- list(label='Tax Administration') %>% lasso_features(fold=20)
-# 20 rounds took ~1 min
+feature_list_lasso <- list(label='Tax Administration') %>% lasso_features(fold=20)
+# gives me 31 high-impact features
 
+feature_list_xgb <- list(label='Tax Administration') %>% xgb_features(fold=20)
+# gives me 69 high-impact features
+
+intersect(feature_list_lasso$feature,feature_list_xgb$feature)
 ###############################################################################
 # Initial model testing
 ###############################################################################
 model_compare('Tax Administration')
 # Most models (except linear) are comparable, with no real consistency in ranking
-# when I run this repeatedly.
+# when I run this repeatedly. Best is typically around 0.42-0.46
+in_sample_compare('Tax Administration')
+# xgboost is the only one that's flexible enough to get to nearly zero error 
+# on this dataset. SVM also overfits; LASSO helps reduce overfitting in linear.
 
 lasso_best <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se)
 pred_scatter(lasso_best,filter_year=c(2012,2016))
 # some are too high...
+
 lasso_max <- list(label='Tax Administration', wrapper=lm_wrap, feature=lasso_1se, max_enforce=TRUE)
 pred_scatter(lasso_max,filter_year=c(2012,2016))
 countries_wrong(lasso_max,fold=30) %>% head(10)
@@ -65,12 +73,19 @@ countries_wrong(lasso_max,fold=30) %>% head(10)
 ###############################################################################
 # k-nearest neighbors
 ###############################################################################
-knn_tune('Tax Administration') 
-# best: 0.52, k=24 -- but really, everything above about k=4 looks pretty similar.
-knn_tune('Tax Administration',feature=lasso_1se) 
-# best: 0.45, k=16 (k=10 also not bad)
-knn_tune('Tax Administration',feature=lasso_min) 
-# best: 0.50, k=10
+knn_simple <- list(label='Tax Administration', wrapper=knn_wrap, k=10)
+
+lasso_select <- function(d) {
+  d %>% select(country,varstr,year,value,feature_list_lasso$feature)
+}
+
+knn_lasso <- list(label='Tax Administration', wrapper=knn_wrap, k=10, 
+                  feature=lasso_select)
+xval(knn_simple) # NRMSE = 0.578
+xval(knn_lasso) # NRMSE = 0.438
+
+knn_tune('Tax Administration',feature=lasso_select) 
+# best: 0.48, k=10 
 
 knn_best <- list(label='Tax Administration', wrapper=knn_wrap, feature=lasso_1se, k=10)
 
@@ -81,17 +96,40 @@ countries_wrong(knn_best,fold=30) %>% head(10)
 ###############################################################################
 # SVM
 ###############################################################################
-svm_tune('Tax Administration',fold=100)
-# This looks terrible -- my top-scoring hyperparameter combinations are 
-# spread all over the place. Best scores around 0.495 (not beating KNN!)
+svm_result <- svm_tune('Tax Administration', prepare=normalize, 
+                       feature=lasso_select, fold=10, ntry=60)
+head(svm_result)
+tail(svm_result)
+# difference between the best and worst SVM results is *almost* statistically
+# significant
 
-svm_tune('Tax Administration',prepare=normalize, fold=100)
-# best here was 0.494
+svm_check <- list(
+  svm_default=list(label='Tax Administration', wrapper=svm_wrap, prepare=normalize, feature=lasso_select),
+  svm_best=list(label='Tax Administration', wrapper=svm_wrap, prepare=normalize, feature=lasso_select,
+                cost=svm_result$cost[1],epsilon=svm_result$epsilon[1],gamma=svm_result$gamma[1]),
+  svm_worst=list(label='Tax Administration', wrapper=svm_wrap, prepare=normalize, feature=lasso_select,
+                cost=svm_result$cost[60],epsilon=svm_result$epsilon[60],gamma=svm_result$gamma[60])
+) %>% plyr::ldply(xval,return_tbl=TRUE,fold=100)
 
-lasso_norm <- function(d) {
-  d %>% lasso_1se %>% normalize
-}
-svm_tune('Tax Administration',prepare=lasso_norm, fold=100)
-# TODO: doesn't quite work yet
+# SVM just isn't doing it here.
 
-# TODO: maybe SVM would benefit from PCA transformation of data?
+###############################################################################
+# xgboost
+###############################################################################
+# First goal needs to be tuning to get about 100 iterations before early stopping
+xval(list(label='Tax Administration',nrounds=NULL,wrapper=xgb_wrap),
+     fold=10,test_frac=0.3,verbose=FALSE,return_tbl=TRUE)
+# 8-22 iterations
+xval(list(label='Tax Administration',nrounds=NULL,wrapper=xgb_wrap,
+          eta=0.1),
+     fold=10,test_frac=0.3,verbose=FALSE,return_tbl=TRUE)
+# 27-72 iterations
+xval(list(label='Tax Administration',nrounds=NULL,wrapper=xgb_wrap,
+          eta=0.05),
+     fold=10,test_frac=0.3,verbose=FALSE,return_tbl=TRUE)
+# 55-175 iterations
+
+xgb_try <- xgb_tune('Tax Administration',ntry=200)
+# None of these are really dramatically better than what I'd seen before; 
+# hyperparameter tuning isn't saving me.
+

@@ -198,6 +198,21 @@ xval <- function(input_list,fold=10,test_frac=0.1,verbose=TRUE,
 }
 
 ###############################################################################
+# Estimate in-sample error (useful for teasing apart bias and variance)
+###############################################################################
+in_sample_error <- function(input_list) {
+  d <- xval_prep(input_list) %>% select(-country,-varstr)
+  if (!is.null(input_list$prepare)) {
+    prep <- input_list$prepare(list(train=d,test=d))
+    d <- prep$train
+  }
+  param_ind <- !(names(input_list) %in% c('label','wrapper','prepare','feature'))
+  params <- input_list[param_ind]
+  d$pred <- do.call(input_list$wrapper,c(list(d,d),params))
+  sqrt(mean((d$value-d$pred)^2))/IQR(d$value)
+}
+
+###############################################################################
 # As a first step toward model selection, compare how different algorithms
 # do with default parameters.
 ###############################################################################
@@ -213,16 +228,46 @@ model_compare <- function(varstr) {
     xgb=list(label=varstr, wrapper=xgb_wrap)
   )
   ifs_basic <- load_all_ifs()
-  plyr::ldply(models,xval,return_tbl=TRUE) %>%
+  compare <- plyr::ldply(models,xval,return_tbl=TRUE) %>%
     mutate(.id=fct_reorder(.id,desc(mean)),
-           label=ifelse(mean==min(mean),round(mean,3),NA)) %>%
-    ggplot(aes(x=.id,y=mean)) +
-      geom_bar(stat='identity',fill='#A7C6ED') +
-      theme_USAID +
-      ylab('NRMSE') + xlab(NULL) +
-      geom_errorbar(aes(ymin=lo,ymax=hi), width=0.5) +
-      coord_flip() +
-      geom_text(aes(y=0.05,label=label),hjust=-0.1)
+           label=ifelse(mean==min(mean),round(mean,3),NA),
+           lo=ifelse(lo<0,NA,lo), # drop meaningless error bars
+           hi=ifelse(lo<0,NA,hi)) 
+  print(compare)
+  ggplot(compare,aes(x=.id,y=mean)) +
+    geom_bar(stat='identity',fill='#A7C6ED') +
+    theme_USAID +
+    ylab('NRMSE') + xlab(NULL) +
+    geom_errorbar(aes(ymin=lo,ymax=hi), width=0.5) +
+    coord_flip() +
+    geom_text(aes(y=0.05,label=label),hjust=-0.1)
+}
+
+###############################################################################
+# Similar comparison, but with in-sample error.
+###############################################################################
+in_sample_compare <- function(varstr) {
+  models <- list(
+    linear=list(label=varstr, wrapper=lm_wrap),
+    lasso_1se=list(label=varstr, wrapper=lm_wrap, feature=lasso_1se),
+    lasso_min=list(label=varstr, wrapper=lm_wrap, feature=lasso_min),
+    knn7=list(label=varstr, wrapper=knn_wrap, k=7),
+    knn7_1se=list(label=varstr, wrapper=knn_wrap, feature=lasso_1se, k=7),
+    knn7_min=list(label=varstr, wrapper=knn_wrap, feature=lasso_min, k=7),
+    svm=list(label=varstr, wrapper=svm_wrap),
+    xgb=list(label=varstr, wrapper=xgb_wrap)
+  )
+  compare <- map_dbl(models,in_sample_error) 
+  plotme <- data_frame(id=names(compare),value=compare) %>%
+    mutate(id=fct_reorder(id,desc(value)),
+           label=ifelse(value==min(value),value,NA)) 
+  print(sort(compare))
+  ggplot(plotme,aes(x=id,y=value)) +
+    geom_bar(stat='identity',fill='#A7C6ED') +
+    theme_USAID +
+    ylab('NRMSE') + xlab(NULL) +
+    coord_flip() +
+    geom_text(aes(y=0.05,label=label),hjust=-0.1)
 }
 
 ###############################################################################
@@ -252,24 +297,28 @@ knn_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
 # makes more sense than a random search.
 ###############################################################################
 svm_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
-                     cost_range=c(1,1e5),eps_range=c(0,1)) {
+                     cost_range=c(1e-5,1e5),eps_range=c(0,1),gamma_range=c(1e-5,1e5)) {
+  lcost_range <- log(cost_range)
+  lgamma_range <- log(gamma_range)
   models <- plyr::llply(1:ntry,function(i) {
-    eps <- runif(1,min=eps_range[1],max=eps_range[2]) %>% round(4)
-    lcost_range <- log(cost_range)
-    cost <- runif(1,min=lcost_range[1],max=lcost_range[2]) %>% exp %>% round(1)
-    list(label=varstr, wrapper=svm_wrap, prepare=prepare, feature=feature, cost=cost, epsilon=eps)
+    eps <- runif(1,min=eps_range[1],max=eps_range[2]) 
+    cost <- runif(1,min=lcost_range[1],max=lcost_range[2]) %>% exp 
+    gamma <- runif(1,min=lgamma_range[1],max=lgamma_range[2]) %>% exp 
+    list(label=varstr, wrapper=svm_wrap, prepare=prepare, feature=feature, 
+         cost=cost, epsilon=eps, gamma=gamma)
   })
-  names(models) <- map_chr(models,function(x) paste0('svm_',x$cost,'_',x$epsilon))
   compare <- plyr::ldply(models,xval,fold=fold,return_tbl=TRUE) 
   compare$cost <- map_dbl(models,'cost')
   compare$epsilon <- map_dbl(models,'epsilon')
+  compare$gamma <- map_dbl(models,'gamma')
   compare %>% arrange(mean) %>% head(10) %>% print
-  ggplot(compare,aes(x=epsilon,y=cost,color=mean)) +
-    geom_point(size=2) +
-    theme_USAID +
-    scale_color_distiller(palette = "Spectral") +
-    scale_y_log10() +
-    ylab('Cost') + xlab('Epsilon') 
+  # ggplot(compare,aes(x=epsilon,y=cost,color=mean)) +
+  #   geom_point(size=2) +
+  #   theme_USAID +
+  #   scale_color_distiller(palette = "Spectral") +
+  #   scale_y_log10() +
+  #   ylab('Cost') + xlab('Epsilon') 
+  compare %>% arrange(mean)
 }
 
 ###############################################################################
@@ -279,8 +328,26 @@ svm_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
 # tuning parameters (including nrounds) by randomly exploring 60 points close
 # to the set of parameters that gets me 100 rounds.
 ###############################################################################
-xgb_tune <- function(varstr, prepare=NULL, feature=NULL, kmax=25) {
-  
+xgb_tune <- function(varstr, ntry=60, fold=10, prepare=NULL, feature=NULL,
+           eta_range=c(0,1),max_depth_range=c(2,8),subsample_range=c(0,1),
+           colsample_bytree_range=c(0,1),nrounds_range=c(50,150)) {
+    models <- plyr::llply(1:ntry,function(i) {
+      eta <- runif(1,min=eta_range[1],max=eta_range[2]) 
+      max_depth <- runif(1,min=max_depth_range[1],max=max_depth_range[2]) %>% round
+      subsample <- runif(1,min=subsample_range[1],max=subsample_range[2]) 
+      colsample_bytree <- runif(1,min=colsample_bytree_range[1],max=colsample_bytree_range[2])
+      nrounds <- runif(1,min=nrounds_range[1],max=nrounds_range[2]) %>% round
+      list(label=varstr, wrapper=xgb_wrap, prepare=prepare, feature=feature, 
+           eta=eta, max_depth=max_depth, subsample=subsample, colsample_bytree=colsample_bytree,
+           nrounds=nrounds)
+    })
+    compare <- plyr::ldply(models,xval,fold=fold,return_tbl=TRUE) 
+    compare$eta <- map_dbl(models,'eta')
+    compare$max_depth <- map_dbl(models,'max_depth')
+    compare$subsample <- map_dbl(models,'subsample')
+    compare$colsample_bytree <- map_dbl(models,'colsample_bytree')
+    compare$nrounds <- map_dbl(models,'nrounds')
+    compare %>% arrange(mean)
 }
 
 ###############################################################################

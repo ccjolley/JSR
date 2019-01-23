@@ -29,7 +29,7 @@ normalize <- function(l) {
 ###############################################################################
 # Feature selection: LASSO 
 ###############################################################################
-lasso_1se <- function(d) {
+lasso_1se <- function(d,...) {
   x <- d %>% select(-value,-country,-varstr) %>% as.matrix
   y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
@@ -40,7 +40,7 @@ lasso_1se <- function(d) {
   d %>% select(country,varstr,year,value,n)
 }
 
-lasso_min <- function(d) {
+lasso_min <- function(d,...) {
   x <- d %>% select(-value,-country,-varstr) %>% as.matrix
   y <- d$value
   cv.out <- cv.glmnet(x,y,alpha=1,family='gaussian',type.measure = 'mse')
